@@ -314,7 +314,7 @@
           '<span class="muted sm">0%</span><span class="muted sm">100%</span>' +
         '</div></div>';
     }
-    html += '<p class="t-note">行业广度统计东方财富行业板块的涨跌家数与强势行业占比，占比越高说明赚钱效应越强。</p>';
+    html += '<p class="t-note">行业广度统计行业板块的涨跌家数与强势行业占比，占比越高说明赚钱效应越强。</p>';
     return html;
   }
 
@@ -350,7 +350,7 @@
       ]) + '<p class="t-note">PE 分位为历史百分位（越高越贵）；股息率为近 12 个月口径。数据来自蛋卷基金指数估值。</p>'
         : '<p class="t-note">估值数据暂不可用。</p>');
 
-    html += JYXT.card('行业广度', '东方财富行业板块口径', panelBreadthHTML(ind));
+    html += JYXT.card('行业广度', ind && ind.source === 'sina' ? '新浪行业板块口径（备用）' : '东方财富行业板块口径', panelBreadthHTML(ind));
 
     html += JYXT.card('主要指数', indices.length ? indices.length + ' 个指数' : '暂无数据',
       indices.length

@@ -118,6 +118,20 @@ async function loadEtfFromSina(sort, page, size, keyword) {
     throw new Error('新浪 ETF 数据解析失败');
   }
   if (!Array.isArray(rows)) rows = [];
+
+  // 新浪接口的 num 不严格生效，统一裁剪；总数用专用接口查询
+  let total = null;
+  try {
+    const countText = await sinaGetText(
+      'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeStockCount?node=etf_hq_fund',
+      'utf8'
+    );
+    const parsed = Number.parseInt(String(countText).replace(/[^0-9]/g, ''), 10);
+    if (Number.isFinite(parsed) && parsed > 0) total = parsed;
+  } catch (err) {
+    total = null;
+  }
+
   let items = rows.map((row) => ({
     code: String(row.code || ''),
     name: String(row.name || ''),
@@ -131,8 +145,8 @@ async function loadEtfFromSina(sort, page, size, keyword) {
     const start = (page - 1) * size;
     return { total: items.length, items: items.slice(start, start + size), source: 'sina' };
   }
-  const total = rows.length === numPerPage ? page * size + size : (page - 1) * size + rows.length;
-  return { total, items, source: 'sina' };
+  if (!Number.isFinite(total)) total = page * size + rows.length;
+  return { total, items: items.slice(0, size), source: 'sina' };
 }
 
 /** 新浪个股排名（行业成分股，降级选股用） */
@@ -177,7 +191,8 @@ async function getStockPickFromSina(count) {
         industry: industry.name,
         price: row.price,
         changePct: row.changePct,
-        inflow: row.amount, // 降级口径：成交额（元）
+        inflow: null, // 降级口径下主力净流入不可得，置空避免误导
+        amount: row.amount,
         marketCap: row.marketCap,
       });
     }
@@ -880,6 +895,7 @@ async function getEmotionPanel() {
             down: industriesData.down,
             avgPct: industriesData.avgPct,
             strongRatio: industriesData.strongRatio,
+            source: industriesData.source || 'eastmoney',
           }
         : null,
       indices: quotes.map((quote) => ({

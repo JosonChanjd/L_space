@@ -243,7 +243,7 @@ async function buildIndustryFear() {
     },
     proxy: degraded
       ? '全行业板块接口受限，已降级为 A股监控池广度近似'
-      : '全行业板块聚合（约 496 个板块）',
+      : '全行业板块聚合（' + total + ' 个板块）',
     updatedAt: Date.now(),
   };
 }

@@ -450,22 +450,25 @@
     var listEl = body.querySelector('[data-sp-stocks]');
     if (!indEl || !listEl) return;
     var stockMap = {};
+    var currentNote = '';
 
     function renderIndustries(industries) {
       if (!industries || !industries.length) {
         JYXT.empty(indEl, { icon: '🏭', title: '暂无行业资金流数据' });
         return;
       }
+      var hasInflow = industries.some(function (it) { return it && it.mainInflow !== null && it.mainInflow !== undefined; });
       var chipsHTML = industries.map(function (it) {
         var name = (it && it.name) || '—';
         var dir = pctDir(it && it.pct);
-        var title = name + ' 涨幅 ' + pctOr(it && it.pct) + ' 主力净流入 ' + wanOr(it && it.mainInflow);
+        var title = name + ' 涨幅 ' + pctOr(it && it.pct) + (hasInflow ? ' 主力净流入 ' + wanOr(it && it.mainInflow) : '');
         return '<span class="t-chip" title="' + esc(title) + '">' +
           '<b>' + esc(name) + '</b>' +
           '<span class="' + dir + '">' + pctOr(it && it.pct) + '</span>' +
-          '<small class="muted sm">主力 ' + wanOr(it && it.mainInflow) + '</small></span>';
+          (hasInflow ? '<small class="muted sm">主力 ' + wanOr(it && it.mainInflow) + '</small>' : '') +
+          '</span>';
       }).join('');
-      indEl.innerHTML = JYXT.card('热门行业', '板块涨幅 · 主力净流入',
+      indEl.innerHTML = JYXT.card('热门行业', hasInflow ? '板块涨幅 · 主力净流入' : '板块涨幅（备用口径）',
         '<div class="t-chips">' + chipsHTML + '</div>');
     }
 
@@ -475,6 +478,7 @@
         JYXT.empty(listEl, { icon: '🎯', title: '暂无选股结果', desc: '上游资金流数据暂不可用，请稍后再试' });
         return;
       }
+      var hasInflow = stocks.some(function (s) { return s && s.inflow !== null && s.inflow !== undefined; });
       var rowsHTML = stocks.map(function (s) {
         if (!s || !s.code) return '';
         stockMap[String(s.code)] = s;
@@ -485,12 +489,13 @@
           meta: '<span class="muted sm">' + esc(s.industry || '—') + '</span>' + ' · 市值 ' + esc(capText(s.marketCap)),
           side: '<b class="' + dir + '">' + fmtOr(s.price, 2) + '</b>' +
             '<span class="' + dir + '">' + pctOr(s.changePct) + '</span>' +
-            '<small class="muted sm">主力 ' + wanOr(s.inflow) + '</small>',
+            (hasInflow ? '<small class="muted sm">主力 ' + wanOr(s.inflow) + '</small>' : ''),
           attrs: ' data-stock="' + esc(s.code) + '"'
         });
       }).join('');
-      listEl.innerHTML = JYXT.card('牛人选股', '按行业主力净流入筛选',
-        '<div class="t-list">' + rowsHTML + '</div>');
+      listEl.innerHTML = JYXT.card('牛人选股', hasInflow ? '按行业主力净流入筛选' : '按行业涨幅与成分股涨幅（备用口径）',
+        '<div class="t-list">' + rowsHTML + '</div>' +
+        (currentNote ? '<p class="t-note">' + esc(currentNote) + '</p>' : ''));
     }
 
     function load() {
@@ -502,6 +507,7 @@
           JYXT.errorBox(listEl, (data && data.error) || '选股数据获取失败', load);
           return;
         }
+        currentNote = data.note || '';
         renderIndustries(Array.isArray(data.industries) ? data.industries : []);
         renderStocks(Array.isArray(data.stocks) ? data.stocks : []);
       }).catch(function (err) {
