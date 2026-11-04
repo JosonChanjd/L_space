@@ -1,0 +1,16 @@
+# 运行时数据（部署后由服务端生成）
+data/snapshot.json
+data/fear-history.json
+data/analytics-history.json
+.server.pid
+*.log
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
+
+# 预览截图（如需随仓库发布可删除本行）
+# preview*.png
