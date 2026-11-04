@@ -204,7 +204,7 @@ async function getStockPickFromSina(count) {
     industries,
     stocks,
     source: 'sina',
-    note: '东财资金流接口受限，已降级为「行业涨幅 Top5 + 成分股涨幅榜」口径（inflow 为成交额）',
+    note: '东财资金流接口受限，已降级为「行业涨幅 Top5 + 成分股涨幅榜」口径（主力净流入暂不可用，按涨幅排序）',
     updatedAt: Date.now(),
   };
 }
