@@ -55,6 +55,145 @@ const TTL = {
 
 const cache = createCache(120);
 
+// 新浪财经备用数据源（海外机房对东财部分接口限制时使用）
+const SINA_HEADERS = {
+  Referer: 'https://finance.sina.com.cn/',
+  Accept: '*/*',
+};
+
+async function sinaGetText(url, encoding) {
+  return getText(url, {
+    encoding: encoding || 'gbk',
+    timeout: 10000,
+    retries: 1,
+    headers: SINA_HEADERS,
+  });
+}
+
+/** 新浪行业板块：返回约 100 个行业（code/name/pct） */
+async function loadIndustriesFromSina() {
+  const text = await sinaGetText('https://vip.stock.finance.sina.com.cn/q/view/newSinaHy.php');
+  const match = text.match(/=\s*(\{[\s\S]*\})\s*;?\s*$/);
+  if (!match) throw new Error('新浪行业数据解析失败');
+  let obj;
+  try {
+    obj = JSON.parse(match[1]);
+  } catch (err) {
+    throw new Error('新浪行业数据解析失败');
+  }
+  const items = [];
+  for (const key of Object.keys(obj)) {
+    const fields = String(obj[key] || '').split(',');
+    const pct = num(fields[5]);
+    if (!(fields[1] && pct !== null)) continue;
+    items.push({
+      code: String(key),
+      name: String(fields[1]),
+      pct,
+      turnover: null,
+      marketCap: null,
+      stockCount: num(fields[2]),
+      leader: fields[8] ? String(fields[8]) : '',
+    });
+  }
+  if (!items.length) throw new Error('新浪行业数据为空');
+  return { items, total: items.length };
+}
+
+/** 新浪 ETF 列表（sort: f3 涨幅 / f6 成交额 / f8 换手） */
+async function loadEtfFromSina(sort, page, size, keyword) {
+  const sortMap = { f3: 'changepercent', f6: 'amount', f8: 'turnoverratio' };
+  const sortKey = sortMap[sort] || 'changepercent';
+  const numPerPage = keyword ? 1000 : size;
+  const pageNo = keyword ? 1 : page;
+  const url =
+    'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData' +
+    '?page=' + pageNo + '&num=' + numPerPage +
+    '&sort=' + sortKey + '&asc=0&node=etf_hq_fund&symbol=&_s_r_a=page';
+  const text = await sinaGetText(url, 'utf8');
+  let rows;
+  try {
+    rows = JSON.parse(text);
+  } catch (err) {
+    throw new Error('新浪 ETF 数据解析失败');
+  }
+  if (!Array.isArray(rows)) rows = [];
+  let items = rows.map((row) => ({
+    code: String(row.code || ''),
+    name: String(row.name || ''),
+    price: num(row.trade),
+    changePct: num(row.changepercent),
+    amount: num(row.amount),
+    turnover: num(row.turnoverratio),
+  }));
+  if (keyword) {
+    items = items.filter((item) => item.code.indexOf(keyword) >= 0 || item.name.indexOf(keyword) >= 0);
+    const start = (page - 1) * size;
+    return { total: items.length, items: items.slice(start, start + size), source: 'sina' };
+  }
+  const total = rows.length === numPerPage ? page * size + size : (page - 1) * size + rows.length;
+  return { total, items, source: 'sina' };
+}
+
+/** 新浪个股排名（行业成分股，降级选股用） */
+async function loadSinaIndustryStocks(node, size) {
+  const url =
+    'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData' +
+    '?page=1&num=' + Math.max(size, 10) + '&sort=changepercent&asc=0&node=' + encodeURIComponent(node) + '&symbol=&_s_r_a=page';
+  const text = await sinaGetText(url, 'utf8');
+  let rows;
+  try {
+    rows = JSON.parse(text);
+  } catch (err) {
+    return [];
+  }
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => ({
+    code: String(row.code || ''),
+    name: String(row.name || ''),
+    price: num(row.trade),
+    changePct: num(row.changepercent),
+    amount: num(row.amount),
+    marketCap: num(row.mktcap) === null ? null : round(num(row.mktcap) / 1e4, 2), // 万元 → 亿元
+  }));
+}
+
+/** 新浪降级版牛人选股：行业涨幅 Top5 + 成分股涨幅榜 */
+async function getStockPickFromSina(count) {
+  const industriesData = await loadIndustriesFromSina();
+  const industries = industriesData.items
+    .slice()
+    .sort((a, b) => (b.pct || 0) - (a.pct || 0))
+    .slice(0, 5)
+    .map((item) => ({ code: item.code, name: item.name, pct: item.pct, mainInflow: null }));
+  const stockMap = new Map();
+  for (const industry of industries) {
+    const rows = await loadSinaIndustryStocks(industry.code, Math.max(count, 10));
+    for (const row of rows) {
+      if (!/^\d{6}$/.test(row.code) || stockMap.has(row.code)) continue;
+      stockMap.set(row.code, {
+        code: row.code,
+        name: row.name,
+        industry: industry.name,
+        price: row.price,
+        changePct: row.changePct,
+        inflow: row.amount, // 降级口径：成交额（元）
+        marketCap: row.marketCap,
+      });
+    }
+  }
+  const stocks = [...stockMap.values()]
+    .sort((a, b) => (b.changePct === null ? -Infinity : b.changePct) - (a.changePct === null ? -Infinity : a.changePct))
+    .slice(0, count);
+  return {
+    industries,
+    stocks,
+    source: 'sina',
+    note: '东财资金流接口受限，已降级为「行业涨幅 Top5 + 成分股涨幅榜」口径（inflow 为成交额）',
+    updatedAt: Date.now(),
+  };
+}
+
 function num(value) {
   return toNum(value);
 }
@@ -222,24 +361,34 @@ function recordDailyHistory(key, ratio) {
 
 async function loadIndustries() {
   return cache.wrap('industries', TTL.industries, async () => {
-    const { total, diff } = await clist({
-      fs: 'm:90+t:2',
-      fid: 'f3',
-      fields: 'f12,f14,f2,f3,f8,f20',
-      pz: 500,
-    });
-    const items = [];
-    for (const row of diff) {
-      const pct = num(row.f3);
-      if (pct === null) continue;
-      const cap = num(row.f20);
-      items.push({
-        code: String(row.f12 || ''),
-        name: String(row.f14 || ''),
-        pct,
-        turnover: num(row.f8),
-        marketCap: cap === null ? null : round(cap / 1e8, 2), // 亿元
+    let items = [];
+    let total = 0;
+    let source = 'eastmoney';
+    try {
+      const data = await clist({
+        fs: 'm:90+t:2',
+        fid: 'f3',
+        fields: 'f12,f14,f2,f3,f8,f20',
+        pz: 500,
       });
+      total = data.total;
+      for (const row of data.diff) {
+        const pct = num(row.f3);
+        if (pct === null) continue;
+        const cap = num(row.f20);
+        items.push({
+          code: String(row.f12 || ''),
+          name: String(row.f14 || ''),
+          pct,
+          turnover: num(row.f8),
+          marketCap: cap === null ? null : round(cap / 1e8, 2), // 亿元
+        });
+      }
+    } catch (err) {
+      const sina = await loadIndustriesFromSina();
+      items = sina.items;
+      total = sina.total;
+      source = 'sina';
     }
     if (!items.length) throw new Error('行业板块数据为空');
     const up = items.filter((item) => item.pct > 0).length;
@@ -256,6 +405,7 @@ async function loadIndustries() {
       avgPct,
       strongRatio: round((strong / items.length) * 100, 1), // 0-100
       items,
+      source,
     };
   });
 }
@@ -274,7 +424,7 @@ async function getIndustries(limit) {
     avgPct: data.avgPct,
     strongRatio: data.strongRatio,
     items: data.items.slice(0, count),
-    source: cached.source,
+    source: data.source || cached.source,
   };
 }
 
@@ -288,30 +438,41 @@ async function getEtfList(params) {
   const keyword = String(input.kw || '').trim();
 
   const cached = await cache.wrap('etf:' + sort + ':' + page + ':' + size + ':' + keyword, TTL.etf, async () => {
-    const { total, diff } = await clist({
-      fs: 'b:MK0021',
-      fid: sort,
-      fields: 'f12,f14,f2,f3,f6,f8',
-      pn: keyword ? 1 : page,
-      pz: keyword ? 500 : size,
-    });
-    let items = diff.map((row) => ({
-      code: String(row.f12 || ''),
-      name: String(row.f14 || ''),
-      price: num(row.f2),
-      changePct: num(row.f3),
-      amount: num(row.f6), // 成交额（元）
-      turnover: num(row.f8), // 换手率 %
-    }));
-    if (keyword) {
-      items = items.filter((item) => item.code.indexOf(keyword) >= 0 || item.name.indexOf(keyword) >= 0);
-      const start = (page - 1) * size;
-      return { total: items.length, items: items.slice(start, start + size) };
+    try {
+      const { total, diff } = await clist({
+        fs: 'b:MK0021',
+        fid: sort,
+        fields: 'f12,f14,f2,f3,f6,f8',
+        pn: keyword ? 1 : page,
+        pz: keyword ? 500 : size,
+      });
+      let items = diff.map((row) => ({
+        code: String(row.f12 || ''),
+        name: String(row.f14 || ''),
+        price: num(row.f2),
+        changePct: num(row.f3),
+        amount: num(row.f6), // 成交额（元）
+        turnover: num(row.f8), // 换手率 %
+      }));
+      if (keyword) {
+        items = items.filter((item) => item.code.indexOf(keyword) >= 0 || item.name.indexOf(keyword) >= 0);
+        const start = (page - 1) * size;
+        return { total: items.length, items: items.slice(start, start + size), source: 'eastmoney' };
+      }
+      return { total, items, source: 'eastmoney' };
+    } catch (err) {
+      return loadEtfFromSina(sort, page, size, keyword);
     }
-    return { total, items };
   });
 
-  return { ok: true, page, size, total: cached.value.total, items: cached.value.items, source: cached.source };
+  return {
+    ok: true,
+    page,
+    size,
+    total: cached.value.total,
+    items: cached.value.items,
+    source: cached.value.source || cached.source,
+  };
 }
 
 // ---------------- AH 溢价 ----------------
@@ -608,56 +769,60 @@ async function getStockBond(bondYieldParam) {
 async function getStockPick(limit) {
   const count = Math.min(30, Math.max(1, Number.parseInt(limit, 10) || 10));
   const cached = await cache.wrap('stock-pick:' + count, TTL.stockPick, async () => {
-    const industryData = await clist({
-      fs: 'm:90+t:2',
-      fid: 'f62',
-      fields: 'f12,f14,f3,f62',
-      pz: 496,
-    });
-    const industries = industryData.diff
-      .map((row) => ({
-        code: String(row.f12 || ''),
-        name: String(row.f14 || ''),
-        pct: num(row.f3),
-        mainInflow: num(row.f62), // 元
-      }))
-      .filter((item) => item.code)
-      .slice(0, 5);
-    if (!industries.length) throw new Error('行业资金流数据缺失');
+    try {
+      const industryData = await clist({
+        fs: 'm:90+t:2',
+        fid: 'f62',
+        fields: 'f12,f14,f3,f62',
+        pz: 496,
+      });
+      const industries = industryData.diff
+        .map((row) => ({
+          code: String(row.f12 || ''),
+          name: String(row.f14 || ''),
+          pct: num(row.f3),
+          mainInflow: num(row.f62), // 元
+        }))
+        .filter((item) => item.code)
+        .slice(0, 5);
+      if (!industries.length) throw new Error('行业资金流数据缺失');
 
-    const stockMap = new Map();
-    for (const industry of industries) {
-      try {
-        const stockData = await clist({
-          fs: 'b:' + industry.code,
-          fid: 'f62',
-          fields: 'f12,f14,f2,f3,f62,f20',
-          pz: Math.max(count, 10),
-        });
-        for (const row of stockData.diff) {
-          const code = String(row.f12 || '');
-          if (!/^\d{6}$/.test(code) || stockMap.has(code)) continue;
-          const cap = num(row.f20);
-          stockMap.set(code, {
-            code,
-            name: String(row.f14 || ''),
-            industry: industry.name,
-            price: num(row.f2),
-            changePct: num(row.f3),
-            inflow: num(row.f62),
-            marketCap: cap === null ? null : round(cap / 1e8, 2), // 亿元
+      const stockMap = new Map();
+      for (const industry of industries) {
+        try {
+          const stockData = await clist({
+            fs: 'b:' + industry.code,
+            fid: 'f62',
+            fields: 'f12,f14,f2,f3,f62,f20',
+            pz: Math.max(count, 10),
           });
+          for (const row of stockData.diff) {
+            const code = String(row.f12 || '');
+            if (!/^\d{6}$/.test(code) || stockMap.has(code)) continue;
+            const cap = num(row.f20);
+            stockMap.set(code, {
+              code,
+              name: String(row.f14 || ''),
+              industry: industry.name,
+              price: num(row.f2),
+              changePct: num(row.f3),
+              inflow: num(row.f62),
+              marketCap: cap === null ? null : round(cap / 1e8, 2), // 亿元
+            });
+          }
+        } catch (err) {
+          /* 单个行业失败不影响整体 */
         }
-      } catch (err) {
-        /* 单个行业失败不影响整体 */
       }
-    }
 
-    const stocks = [...stockMap.values()]
-      .sort((a, b) => (b.inflow === null ? -Infinity : b.inflow) - (a.inflow === null ? -Infinity : a.inflow))
-      .slice(0, count);
-    if (!stocks.length) throw new Error('行业成分股数据缺失');
-    return { industries, stocks, updatedAt: Date.now() };
+      const stocks = [...stockMap.values()]
+        .sort((a, b) => (b.inflow === null ? -Infinity : b.inflow) - (a.inflow === null ? -Infinity : a.inflow))
+        .slice(0, count);
+      if (!stocks.length) throw new Error('行业成分股数据缺失');
+      return { industries, stocks, updatedAt: Date.now(), source: 'eastmoney', note: '' };
+    } catch (err) {
+      return getStockPickFromSina(count);
+    }
   });
 
   return {
@@ -665,7 +830,8 @@ async function getStockPick(limit) {
     updatedAt: cached.value.updatedAt,
     industries: cached.value.industries,
     stocks: cached.value.stocks,
-    source: cached.source,
+    note: cached.value.note || '',
+    source: cached.value.source || cached.source,
   };
 }
 
@@ -755,4 +921,8 @@ module.exports = {
   recordDailyHistory,
   _readBondYieldConfig: readBondYieldConfig,
   _stockBondZone: stockBondZone,
+  // 备用源（可单独测试）
+  _loadIndustriesFromSina: loadIndustriesFromSina,
+  _loadEtfFromSina: loadEtfFromSina,
+  _getStockPickFromSina: getStockPickFromSina,
 };
