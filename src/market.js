@@ -25,7 +25,13 @@ const indexValuation = require('./indexValuation');
 const fearHistory = require('./fearHistory');
 const collect = require('./collect');
 
-const PUSH2 = 'https://push2.eastmoney.com';
+// 东方财富行情接口有多个等价域名：海外机房访问 push2 偶发 502，按顺序自动降级
+const PUSH2_HOSTS = [
+  'https://push2.eastmoney.com',
+  'https://push2delay.eastmoney.com',
+  'https://push2his.eastmoney.com',
+];
+let push2Preferred = null;
 const PUSH2_HEADERS = {
   Referer: 'https://quote.eastmoney.com/',
   Accept: 'application/json, text/plain, */*',
@@ -71,23 +77,37 @@ function localDate(ts) {
 async function push2Json(apiPath, params) {
   const query = new URLSearchParams();
   for (const key of Object.keys(params)) query.set(key, String(params[key]));
-  const url = PUSH2 + apiPath + '?' + query.toString();
-  const text = await getText(url, {
-    encoding: 'utf8',
-    timeout: 12000,
-    retries: 2,
-    headers: PUSH2_HEADERS,
-  });
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch (err) {
-    throw new Error('push2 响应解析失败');
+  const suffix = apiPath + '?' + query.toString();
+  const hosts = push2Preferred
+    ? [push2Preferred].concat(PUSH2_HOSTS.filter((host) => host !== push2Preferred))
+    : PUSH2_HOSTS.slice();
+
+  let lastError = null;
+  for (const host of hosts) {
+    try {
+      const text = await getText(host + suffix, {
+        encoding: 'utf8',
+        timeout: 9000,
+        retries: 1,
+        headers: PUSH2_HEADERS,
+      });
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (err) {
+        throw new Error('响应解析失败');
+      }
+      if (!json || (json.rc !== undefined && json.rc !== 0) || !json.data) {
+        throw new Error('接口返回异常');
+      }
+      push2Preferred = host;
+      return json.data;
+    } catch (err) {
+      lastError = err;
+      if (push2Preferred === host) push2Preferred = null;
+    }
   }
-  if (!json || (json.rc !== undefined && json.rc !== 0) || !json.data) {
-    throw new Error('push2 接口返回异常');
-  }
-  return json.data;
+  throw new Error('东财行情接口不可用（' + (lastError && lastError.message ? lastError.message : 'unknown') + '）');
 }
 
 async function clist(options) {
@@ -302,13 +322,71 @@ const AH_PAIRS = [
   { name: '工商银行', aCode: 'sh601398', hCode: 'hk01398' },
 ];
 
+async function fetchHsaopFromSina() {
+  try {
+    const text = await getText('https://hq.sinajs.cn/list=hkHSAHP', {
+      encoding: 'gbk',
+      timeout: 8000,
+      retries: 1,
+      headers: { Referer: 'https://finance.sina.com.cn/' },
+    });
+    const match = text.match(/hq_str_hkHSAHP="([^"]*)"/);
+    if (!match || !match[1]) return null;
+    const fields = match[1].split(',');
+    // 新浪港股指数格式：code,name,open,prevClose,high,low,last,change,changePct,...
+    const value = num(fields[6]);
+    if (!(value > 0)) return null;
+    return {
+      value: round(value, 2),
+      change: fields[7] === undefined ? null : round(num(fields[7]), 2),
+      changePct: fields[8] === undefined ? null : round(num(fields[8]), 2),
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+async function fetchHkdCnyFromTencent() {
+  try {
+    const text = await getText('https://qt.gtimg.cn/q=whHKDCNY', {
+      encoding: 'gbk',
+      timeout: 8000,
+      retries: 1,
+    });
+    const match = text.match(/v_whHKDCNY="([^"]*)"/);
+    if (!match || !match[1]) return null;
+    const fields = match[1].split('~');
+    const value = num(fields[3]);
+    return value > 0 ? round(value, 4) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function getAhPremium() {
   const cached = await cache.wrap('ah-premium', TTL.ah, async () => {
-    const [indexData, hkdData] = await Promise.all([
-      stockGet('100.HSAHP', 'f43,f57,f58,f169,f170'),
-      stockGet('133.HKDCNH', 'f43,f57,f58'),
-    ]);
-    const hkdCny = scaleHkd(hkdData.f43);
+    // 1) AH 溢价指数：优先东财 push2（多域名降级），失败回退新浪 hkHSAHP
+    let index = null;
+    try {
+      const indexData = await stockGet('100.HSAHP', 'f43,f57,f58,f169,f170');
+      index = {
+        value: scaleIndexPrice(indexData.f43),
+        change: scalePct(indexData.f169),
+        changePct: scalePct(indexData.f170),
+      };
+    } catch (err) {
+      index = await fetchHsaopFromSina();
+    }
+
+    // 2) 港币汇率：优先东财，失败回退腾讯 whHKDCNY
+    let hkdCny = null;
+    try {
+      const hkdData = await stockGet('133.HKDCNH', 'f43,f57,f58');
+      hkdCny = scaleHkd(hkdData.f43);
+    } catch (err) {
+      hkdCny = null;
+    }
+    if (!(hkdCny > 0)) hkdCny = await fetchHkdCnyFromTencent();
     if (!(hkdCny > 0)) throw new Error('港币汇率数据缺失');
 
     const codes = [];
@@ -329,29 +407,54 @@ async function getAhPremium() {
     });
 
     return {
-      index: {
-        value: scaleIndexPrice(indexData.f43),
-        change: scalePct(indexData.f169),
-        changePct: scalePct(indexData.f170),
-      },
+      index,
       hkdCny: round(hkdCny, 4),
       pairs,
+      note: index ? '' : 'AH 溢价指数暂不可用，可参考下方成分股 A/H 溢价',
       updatedAt: Date.now(),
     };
   });
 
-  return { ok: true, index: cached.value.index, hkdCny: cached.value.hkdCny, pairs: cached.value.pairs, updatedAt: cached.value.updatedAt, source: cached.source };
+  return {
+    ok: true,
+    index: cached.value.index,
+    hkdCny: cached.value.hkdCny,
+    pairs: cached.value.pairs,
+    note: cached.value.note || '',
+    updatedAt: cached.value.updatedAt,
+    source: cached.source,
+  };
 }
 
 // ---------------- 股汇比 ----------------
 
+async function fetchUsdCnyFromTencent() {
+  try {
+    const text = await getText('https://qt.gtimg.cn/q=whUSDCNY', {
+      encoding: 'gbk',
+      timeout: 8000,
+      retries: 1,
+    });
+    const match = text.match(/v_whUSDCNY="([^"]*)"/);
+    if (!match || !match[1]) return null;
+    const value = num(match[1].split('~')[3]);
+    return value > 0 ? round(value, 4) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function getFxStock() {
   const cached = await cache.wrap('fx-stock', TTL.fxStock, async () => {
-    const [usdData, shIndex] = await Promise.all([
-      stockGet('133.USDCNH', 'f43,f57,f58'),
-      fetchOne('sh000001'),
-    ]);
-    const usdCny = scaleUsd(usdData.f43);
+    const shIndex = await fetchOne('sh000001');
+    let usdCny = null;
+    try {
+      const usdData = await stockGet('133.USDCNH', 'f43,f57,f58');
+      usdCny = scaleUsd(usdData.f43);
+    } catch (err) {
+      usdCny = null;
+    }
+    if (!(usdCny > 0)) usdCny = await fetchUsdCnyFromTencent();
     if (!(usdCny > 0)) throw new Error('美元兑离岸人民币数据缺失');
     if (!(shIndex.price > 0)) throw new Error('上证指数行情缺失');
     const ratio = round(shIndex.price / usdCny, 2);
@@ -570,13 +673,27 @@ async function getStockPick(limit) {
 
 async function getEmotionPanel() {
   const cached = await cache.wrap('emotion-panel', TTL.emotion, async () => {
-    const [snapshot, valuation, industries] = await Promise.all([
-      collect.getSnapshot(),
-      indexValuation.getIndexValuation(),
-      loadIndustries(),
-    ]);
-    const hs = findHs300(valuation.items);
-    const { quotes } = await fetchQuotes(['sh000001', 'sz399001', 'sz399006', 'sh000300']);
+    const snapshot = await collect.getSnapshot().catch(() => null);
+    const valuation = await indexValuation.getIndexValuation().catch(() => ({ items: [] }));
+
+    let industriesData = null;
+    try {
+      const industriesCached = await loadIndustries();
+      industriesData = industriesCached.value;
+    } catch (err) {
+      industriesData = null;
+    }
+
+    const hs = valuation && Array.isArray(valuation.items) ? findHs300(valuation.items) : null;
+
+    let quotes = [];
+    try {
+      const quoteResult = await fetchQuotes(['sh000001', 'sz399001', 'sz399006', 'sh000300']);
+      quotes = quoteResult.quotes;
+    } catch (err) {
+      quotes = [];
+    }
+
     return {
       updatedAt: Date.now(),
       fearGreed: snapshot ? snapshot.fearGreed : null,
@@ -591,18 +708,21 @@ async function getEmotionPanel() {
             }
           : null,
       },
-      industries: {
-        up: industries.value.up,
-        down: industries.value.down,
-        avgPct: industries.value.avgPct,
-        strongRatio: industries.value.strongRatio,
-      },
+      industries: industriesData
+        ? {
+            up: industriesData.up,
+            down: industriesData.down,
+            avgPct: industriesData.avgPct,
+            strongRatio: industriesData.strongRatio,
+          }
+        : null,
       indices: quotes.map((quote) => ({
         code: quote.code,
         name: quote.name,
         price: quote.price,
         changePct: quote.changePct,
       })),
+      note: industriesData ? '' : '行业板块数据暂不可用（海外机房对东财接口限制），其余指标正常',
     };
   });
 
@@ -614,6 +734,7 @@ async function getEmotionPanel() {
     valuation: cached.value.valuation,
     industries: cached.value.industries,
     indices: cached.value.indices,
+    note: cached.value.note || '',
     source: cached.source,
   };
 }

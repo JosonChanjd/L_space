@@ -158,12 +158,47 @@ function buildAssetFear(key, def, quote, momentum) {
 }
 
 async function buildIndustryFear() {
-  const industries = await market.getIndustries(500);
+  let industries;
+  let degraded = false;
+  try {
+    industries = await market.getIndustries(500);
+  } catch (err) {
+    // 海外机房对东财行业接口限制时的降级口径：用 A股监控池广度近似
+    degraded = true;
+    const collect = require('./collect');
+    let snapshot = null;
+    try {
+      snapshot = await collect.getSnapshot();
+    } catch (e) {
+      snapshot = null;
+    }
+    const section = snapshot && Array.isArray(snapshot.sections)
+      ? snapshot.sections.find((item) => item.id === 'a')
+      : null;
+    const list = (section && Array.isArray(section.items) ? section.items : []).filter(
+      (item) => Number.isFinite(Number(item.changePct))
+    );
+    const up = list.filter((item) => Number(item.changePct) > 0).length;
+    const down = list.filter((item) => Number(item.changePct) < 0).length;
+    const flat = list.length - up - down;
+    const avgPct = list.length
+      ? round(list.reduce((sum, item) => sum + Number(item.changePct), 0) / list.length, 2)
+      : null;
+    const total = list.length;
+    industries = {
+      up,
+      down,
+      flat,
+      total,
+      avgPct,
+      strongRatio: total ? round((list.filter((item) => Number(item.changePct) >= 2).length / total) * 100, 1) : null,
+    };
+  }
   const total = (industries.up || 0) + (industries.down || 0) + (industries.flat || 0);
   const upRatio = total ? round((industries.up / total) * 100, 1) : 50;
   const avgPct = industries.avgPct;
-  const avgScore = avgPct === null ? 50 : round(clamp(50 + (avgPct / 3) * 50, 0, 100), 1);
-  const strongScore = industries.strongRatio === null ? 50 : round(clamp(industries.strongRatio, 0, 100), 1);
+  const avgScore = avgPct === null || avgPct === undefined ? 50 : round(clamp(50 + (avgPct / 3) * 50, 0, 100), 1);
+  const strongScore = industries.strongRatio === null || industries.strongRatio === undefined ? 50 : round(clamp(industries.strongRatio, 0, 100), 1);
 
   const value = Math.round(clamp(upRatio * 0.4 + avgScore * 0.3 + strongScore * 0.3, 0, 100));
   const band = levelOf(value);
@@ -180,7 +215,7 @@ async function buildIndustryFear() {
         label: '上涨行业占比',
         value: upRatio,
         weight: 0.4,
-        desc: industries.up + ' 涨 / ' + industries.down + ' 跌 / ' + industries.flat + ' 平（共 ' + total + ' 个行业板块）',
+        desc: industries.up + ' 涨 / ' + industries.down + ' 跌 / ' + industries.flat + ' 平（共 ' + total + ' 个' + (degraded ? ' A股监控标的' : '行业板块') + '）',
       },
       {
         key: 'avg',
@@ -206,7 +241,9 @@ async function buildIndustryFear() {
       high52w: null,
       low52w: null,
     },
-    proxy: '全行业板块聚合（约 496 个板块）',
+    proxy: degraded
+      ? '全行业板块接口受限，已降级为 A股监控池广度近似'
+      : '全行业板块聚合（约 496 个板块）',
     updatedAt: Date.now(),
   };
 }

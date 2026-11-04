@@ -21,7 +21,9 @@ const { createCache, toNum, round } = require('./fund');
 
 const SEARCH_URL = 'https://searchapi.eastmoney.com/api/suggest/get';
 const KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
-const QUOTE_URL = 'https://push2.eastmoney.com/api/qt/stock/get';
+// push2 在部分海外机房会 502，push2his 同样提供行情查询接口，故报价走 push2his
+const QUOTE_URL = 'https://push2his.eastmoney.com/api/qt/stock/get';
+const SMARTBOX_URL = 'https://smartbox.gtimg.cn/s3/';
 const TOKEN = 'D43BF722C8E33BDC906FB84D85E326E8';
 
 const TTL = {
@@ -98,6 +100,87 @@ async function loadSearchRows(keyword, count) {
   return table && Array.isArray(table.Data) ? table.Data : [];
 }
 
+/** 腾讯 smartbox 搜索兜底（东财搜索在海外机房偶发解析失败/限流时使用） */
+async function loadSmartboxRows(keyword) {
+  const text = await getText(
+    SMARTBOX_URL + '?q=' + encodeURIComponent(keyword) + '&t=all',
+    {
+      encoding: 'gbk',
+      timeout: 8000,
+      retries: 1,
+      headers: { Referer: 'https://gu.qq.com/' },
+    }
+  );
+  const match = text.match(/v_hint="([^"]*)"/);
+  if (!match || !match[1]) return [];
+  let raw = match[1];
+  try {
+    raw = JSON.parse('"' + raw.replace(/"/g, '\\"') + '"');
+  } catch (err) {
+    /* 保留原始转义文本 */
+  }
+  return raw
+    .split('^')
+    .filter(Boolean)
+    .map((part) => {
+      const fields = part.split('~');
+      return {
+        market: String(fields[0] || '').trim(),
+        code: String(fields[1] || '').trim(),
+        name: String(fields[2] || '').trim(),
+        type: String(fields[4] || '').trim(),
+      };
+    });
+}
+
+/** 把 smartbox 结果归一化为与东财搜索一致的 items */
+function smartboxToItems(rows, count) {
+  const items = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (!row || !row.code || !row.name) continue;
+    if (!/^(GP|ZS|ETF)/.test(row.type)) continue;
+    const market = row.market;
+    let code = row.code;
+    let secid = null;
+    let marketName = '';
+    let type = null;
+    if (market === 'sh' || market === 'sz') {
+      const digits = code.replace(/\D/g, '');
+      if (!/^\d{6}$/.test(digits)) continue;
+      code = digits;
+      secid = (market === 'sh' ? '1.' : '0.') + code;
+      marketName = row.type === 'ZS' ? '指数' : market === 'sh' ? '沪A' : '深A';
+      type = row.type === 'ZS' ? 'Index' : row.type === 'ETF' ? 'ETF' : 'AStock';
+    } else if (market === 'hk') {
+      const digits = code.replace(/\D/g, '').padStart(5, '0');
+      if (!/^\d{5}$/.test(digits)) continue;
+      code = digits;
+      secid = '116.' + code;
+      marketName = '港股';
+      type = 'HkStock';
+    } else if (market === 'us') {
+      code = code.split('.')[0].toUpperCase();
+      if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(code)) continue;
+      secid = '105.' + code;
+      marketName = '美股';
+      type = 'UsStock';
+    } else if (market === 'bj') {
+      if (!/^\d{6}$/.test(code)) continue;
+      secid = '0.' + code;
+      marketName = '京A';
+      type = 'AStock';
+    } else {
+      continue;
+    }
+    if (seen.has(secid)) continue;
+    seen.add(secid);
+    items.push({ code, name: row.name, market: marketName, secid, type });
+    if (items.length >= count) break;
+  }
+  return items;
+}
+
 /** 只保留可交易/可回测的市场（A股 / 港股 / 美股 / 指数），过滤基金、债券、英股韩股等噪音 */
 function isSupportedMarket(row) {
   if (!row || isFundOrBond(row)) return false;
@@ -125,28 +208,43 @@ function marketPriority(row) {
 async function searchStocks(key, limit) {
   const keyword = String(key === null || key === undefined ? '' : key).trim();
   const count = clamp(Number.parseInt(limit, 10) || 10, 1, 30);
-  if (!keyword) return { ok: true, items: [] };
+  if (!keyword) return { ok: true, items: [], source: 'empty' };
 
   const cached = await cache.wrap('stock-search:' + keyword + ':' + count, TTL.search, async () => {
-    const rows = await loadSearchRows(keyword, Math.max(count * 2, 10));
-    const items = [];
-    for (const row of rows) {
-      if (!row || !row.Code || !row.QuoteID) continue;
-      if (!isSupportedMarket(row)) continue;
-      items.push({
-        code: String(row.Code).trim(),
-        name: String(row.Name || '').trim(),
-        // 契约：market 取 SecurityTypeName（沪A / 深A / 港股 / 美股 / 指数 …）
-        market: String(row.SecurityTypeName || '').trim() || classifyMarket(row),
-        secid: String(row.QuoteID).trim(),
-        type: String(row.Classify || '').trim() || null,
-      });
-      if (items.length >= count) break;
+    // 1) 东财搜索（主源）
+    let items = [];
+    try {
+      const rows = await loadSearchRows(keyword, Math.max(count * 2, 10));
+      for (const row of rows) {
+        if (!row || !row.Code || !row.QuoteID) continue;
+        if (!isSupportedMarket(row)) continue;
+        items.push({
+          code: String(row.Code).trim(),
+          name: String(row.Name || '').trim(),
+          market: String(row.SecurityTypeName || '').trim() || classifyMarket(row),
+          secid: String(row.QuoteID).trim(),
+          type: String(row.Classify || '').trim() || null,
+        });
+        if (items.length >= count) break;
+      }
+    } catch (err) {
+      items = [];
     }
-    return items;
+
+    // 2) 腾讯 smartbox（兜底：数字代码解析失败、海外机房限制等）
+    if (!items.length) {
+      try {
+        const rows = await loadSmartboxRows(keyword);
+        const fallback = smartboxToItems(rows, count);
+        if (fallback.length) return { items: fallback, source: 'tencent-smartbox' };
+      } catch (err) {
+        /* 兜底失败则返回空 */
+      }
+    }
+    return { items, source: 'eastmoney' };
   });
 
-  return { ok: true, items: cached.value, source: cached.source };
+  return { ok: true, items: cached.value.items, source: cached.source };
 }
 
 /** 启发式 secid（搜索接口失败时兜底） */
