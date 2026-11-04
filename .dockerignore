@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+data/snapshot.json
+data/fear-history.json
+data/analytics-history.json
+preview*.png
+*.log
+.DS_Store
+Thumbs.db

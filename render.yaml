@@ -1,0 +1,15 @@
+# Render Blueprint：GitHub 仓库连接后，Render 会自动读取本文件创建 Web Service
+# 免费实例：15 分钟无访问会休眠，首次唤醒约 30-60 秒；磁盘非持久（每次启动重新抓取数据）
+services:
+  - type: web
+    name: jiuyan-workbench
+    runtime: node
+    plan: free
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: TZ
+        value: Asia/Shanghai
+      - key: NODE_VERSION
+        value: 20.11.1

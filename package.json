@@ -1,0 +1,14 @@
+{
+  "name": "jiuyan-investment-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "description": "韭研 · 投研工作台（零依赖 Node 服务：行情 / 基金 / 策略 / 工具箱 / 商品行情）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

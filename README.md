@@ -18,6 +18,58 @@ Windows 下也可以直接双击 `启动网页.bat`（等价于在项目目录�
 
 自定义端口：`PORT=9000 node server.js`（PowerShell：`$env:PORT=9000; node server.js`）
 
+## 部署到线上（GitHub + Render，全功能在线）
+
+本项目是**零依赖 Node 服务**（`server.js` 同时托管前端与 JSON API），因此需要能运行 Node 的托管平台；GitHub Pages 只能托管静态文件，无法运行本后端。
+
+仓库已内置部署配置：
+
+| 文件 | 用途 |
+| --- | --- |
+| `package.json` | `npm start` → `node server.js`，供 Render / Railway 识别 Node 运行时 |
+| `render.yaml` | Render Blueprint：免费 Web Service + 健康检查 `/api/health` + `TZ=Asia/Shanghai` |
+| `Procfile` | Railway / Heroku 兼容：`web: node server.js` |
+| `Dockerfile` | 通用容器部署（Fly.io / 自建服务器等） |
+
+### 第 1 步：推送到 GitHub
+
+在 GitHub 新建**空仓库**（不要勾选 README / .gitignore），然后在项目目录执行：
+
+```bash
+git remote add origin git@github.com:<你的账号>/<仓库名>.git
+git push -u origin main
+```
+
+> SSH 推送：本机已配置 `ssh.github.com:443`，若 22 端口受限可执行
+> `git remote set-url origin ssh://git@ssh.github.com:443/<你的账号>/<仓库名>.git`
+
+### 第 2 步：Render 部署（推荐，免费）
+
+方式 A（Blueprint，一步到位）：
+
+1. 注册/登录 [render.com](https://render.com/)，点击 **New + → Blueprint**
+2. 连接 GitHub 并选择刚才的仓库，Render 会自动读取 `render.yaml`
+3. 点击 **Apply**，等待构建完成，获得 `https://<服务名>.onrender.com`
+
+方式 B（手动 Web Service）：
+
+- Build Command：`npm install --no-audit --no-fund`
+- Start Command：`node server.js`
+- Health Check Path：`/api/health`
+- 环境变量：`TZ=Asia/Shanghai`（保证每日 19:00 北京时间抓取）
+
+### 第 3 步：Railway（可选）
+
+在 [railway.app](https://railway.app/) 新建项目 → **Deploy from GitHub repo** → 选择仓库即可（读取 `Procfile`）。
+
+### 部署后注意事项
+
+- **免费实例会休眠**：Render 免费 Web Service 15 分钟无访问会休眠，首次访问约 30–60 秒唤醒。
+- **磁盘非持久**：快照/恐贪历史在重启后重新抓取（`data/*.json` 已加入 `.gitignore`）；如需持久化可挂载 Render Disk。
+- **外部数据源需可访问**：服务会请求腾讯财经、天天基金、东方财富、蛋卷等公开接口；若海外机房访问受限，页面会优雅降级。建议 Render 选择 **Singapore** 区域。
+- 部署为公网服务后，`/api/refresh` 等接口无鉴权，公开大量调用可能触发上游限流；个人使用问题不大。
+
+
 ## 功能
 
 - **恐贪指数**：基于真实市场数据合成（多因子情绪方法论）
