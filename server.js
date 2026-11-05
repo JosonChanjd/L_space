@@ -737,8 +737,8 @@ async function handleRequest(req, res) {
       sendJson(res, 405, { ok: false, error: '请使用 GET' });
       return;
     }
-    await sendApi(res, () =>
-      strategies.strategyBacktest({
+    try {
+      const result = await strategies.strategyBacktest({
         code: url.searchParams.get('code') || '',
         assetType: url.searchParams.get('assetType') || 'stock',
         buy: url.searchParams.get('buy') || '',
@@ -750,8 +750,16 @@ async function handleRequest(req, res) {
         fee: queryNum(url, 'fee', 0.0005),
         stopLoss: queryNum(url, 'stopLoss', null),
         takeProfit: queryNum(url, 'takeProfit', null),
-      })
-    );
+      });
+      sendJson(res, 200, result);
+    } catch (err) {
+      console.error('[strategy/backtest]', err);
+      const payload = { ok: false, error: '服务内部错误' };
+      if (url.searchParams.get('debug') === '1') {
+        payload.detail = err && err.stack ? err.stack : String((err && err.message) || err);
+      }
+      sendJson(res, 200, payload);
+    }
     return;
   }
 
