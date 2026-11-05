@@ -31,6 +31,7 @@ const market = require('./src/market');
 const analytics = require('./src/analytics');
 const portfolio = require('./src/portfolio');
 const stocks = require('./src/stocks');
+const strategies = require('./src/strategies');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -223,15 +224,33 @@ async function sendApi(res, handler) {
   }
 }
 
+/** 读取请求体（带大小上限，供 POST /api/strategy/validate 使用） */
+function readBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('请求体过大（上限 ' + Math.round(limit / 1024) + 'KB）'));
+        try {
+          req.destroy();
+        } catch (err) {
+          /* noop */
+        }
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', (err) => reject(err));
+  });
+}
+
 async function handleRequest(req, res) {
   setCommonHeaders(res);
 
   const method = (req.method || 'GET').toUpperCase();
-
-  // 前端刷新请求可能带 body：主动排空，避免 keep-alive 连接被重置
-  if (method !== 'GET' && method !== 'HEAD') {
-    req.resume();
-  }
 
   if (method === 'OPTIONS') {
     res.writeHead(204);
@@ -252,6 +271,12 @@ async function handleRequest(req, res) {
     pathname = decodeURIComponent(pathname);
   } catch (err) {
     /* 保留原始路径 */
+  }
+
+  // 非 GET 请求默认排空 body，避免 keep-alive 连接被重置；
+  // /api/strategy/validate 需要读取 JSON body，交给对应路由处理
+  if (method !== 'GET' && method !== 'HEAD' && pathname !== '/api/strategy/validate') {
+    req.resume();
   }
 
   // ---- GET /api/snapshot：必须永远 200 ----
@@ -655,6 +680,76 @@ async function handleRequest(req, res) {
         sort: url.searchParams.get('sort') || '1nzf',
         page: queryNum(url, 'page', 1),
         size: queryNum(url, 'size', 20),
+      })
+    );
+    return;
+  }
+
+  // ======== 技术指标策略引擎（公式 DSL / 指标 / 信号回测） ========
+
+  // ---- GET /api/strategy/templates ----
+  if (pathname === '/api/strategy/templates') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      sendJson(res, 405, { ok: false, error: '请使用 GET' });
+      return;
+    }
+    await sendApi(res, () => strategies.getTemplates());
+    return;
+  }
+
+  // ---- GET|POST /api/strategy/validate ----
+  if (pathname === '/api/strategy/validate') {
+    if (method === 'GET' || method === 'HEAD') {
+      await sendApi(res, () =>
+        strategies.validateFormulas({
+          buy: url.searchParams.get('buy') || '',
+          sell: url.searchParams.get('sell') || '',
+          assetType: url.searchParams.get('assetType') || '',
+        })
+      );
+      return;
+    }
+    if (method === 'POST') {
+      let payload = {};
+      try {
+        const raw = await readBody(req, 256 * 1024);
+        payload = raw.trim() ? JSON.parse(raw) : {};
+      } catch (err) {
+        sendJson(res, 200, {
+          ok: false,
+          variables: [],
+          functions: [],
+          usesVolume: false,
+          error: '请求体解析失败：' + (err && err.message ? err.message : err),
+        });
+        return;
+      }
+      await sendApi(res, () => strategies.validateFormulas(payload));
+      return;
+    }
+    sendJson(res, 405, { ok: false, error: '请使用 GET 或 POST' });
+    return;
+  }
+
+  // ---- GET /api/strategy/backtest ----
+  if (pathname === '/api/strategy/backtest') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      sendJson(res, 405, { ok: false, error: '请使用 GET' });
+      return;
+    }
+    await sendApi(res, () =>
+      strategies.strategyBacktest({
+        code: url.searchParams.get('code') || '',
+        assetType: url.searchParams.get('assetType') || 'stock',
+        buy: url.searchParams.get('buy') || '',
+        sell: url.searchParams.get('sell') || '',
+        years: queryNum(url, 'years', 3),
+        start: url.searchParams.get('start') || '',
+        end: url.searchParams.get('end') || '',
+        capital: queryNum(url, 'capital', 100000),
+        fee: queryNum(url, 'fee', 0.0005),
+        stopLoss: queryNum(url, 'stopLoss', null),
+        takeProfit: queryNum(url, 'takeProfit', null),
       })
     );
     return;

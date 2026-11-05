@@ -84,6 +84,11 @@ git push -u origin main
   - **推荐策略**：5 套模板（黄金恐贪1期 / 红利低波 / 全球资产配置 / 科技成长 / 股债平衡），按真实历史净值回测
   - **策略详情**：本期收益率大字 + 7 个区间切换（今年以来/近1月/3月/6月/1年/3年/成立来）+ 组合金额/累计盈亏/记账天数 + 时间加权收益 vs 沪深300 基准 + 4 个 Tab（业绩走势 / 组合回撤 / 盈亏金额 / 实时估值）+ 持仓环形图与明细表
   - **自建策略**：自定义名称/初始资金/起始日期/再平衡（每月/季/半年/年/不再平衡）+ 基金与股票混合持仓与权重，保存到本机并可编辑、删除、查看
+  - **技术指标策略（公式策略）**：真正的策略思维，而不只是资产组合
+    - **7 套指标模板**：均线金叉死叉、MACD 金叉、神奇九转（TD 序列）、量价齐升（VOL 量能）、均线多头排列、RSI 超卖反弹、布林带突破
+    - **数学公式导入**：自研 DSL，支持 `CLOSE / OPEN / HIGH / LOW / VOL / AMOUNT` 序列与 `MA / EMA / REF / HHV / LLV / SUM / STD / ABS / MAX / MIN / CROSS / CROSSDOWN / RSI / DIF / DEA / MACD_HIST / KDJ_K / KDJ_D / BOLL_MID / BOLL_UPPER / BOLL_LOWER / TD_BUY / TD_SELL` 函数，支持多行赋值、算术/比较/逻辑运算（如 `M5=MA(CLOSE,5); CROSS(M5,MA(CLOSE,20))`），公式校验 + 中文错误定位
+    - **信号回测**：股票/ETF 用后复权日线（最高 20 年）、基金用净值；T 日信号 T+1 开盘成交、手续费、止损/止盈、全仓；输出收益/年化/最大回撤/波动/夏普/交易次数/胜率/持有天数/盈亏比、交易明细、买卖点标记、当前持仓状态，并对比沪深300 基准
+    - **策略详情**：业绩走势（含买卖点）、组合回撤、交易明细、公式说明 4 个 Tab，支持区间切换、编辑、重新计算、删除、复制为我的策略
 - **自选搜索添加**：自选页可直接搜索股票/ETF（代码或名称，如 600519 / AAPL / 00700）并一键加入自选，代码自动归一化去重
 - **工具（工具箱，共 35 项，磁贴入口 + 工具详情页）**：
   - **挑选基金（8）**：ETF 行情榜（涨幅/成交额/换手，1375 只）、灵感基金池（5 组精选池）、基金筛选（类型 + 近1/3年/今年来收益下限 + 排序）、基金排行（6 类型 × 6 排序 + 分页 + 自选）、牛人选基（经理星级 ≥4 的基金榜）、基金诊断（收益/风险/经理/稳定性/规模 五维评分 + A/B/C/D 等级 + 结论）、基金PK（2-4 只归一化走势 + 指标表）、相似基金（收益向量相似度 Top5）
@@ -145,6 +150,8 @@ src/
   market.js          # 行业板块 / ETF / AH溢价 / 汇股比 / 铜油比 / 股债性价比 / 牛人选股 / 情绪面板
   analytics.js       # 相似基金 / 诊断 / 牛人选基 / 大佬评分 / 大佬PK / 基金筛选
   portfolio.js       # 组合回测（基金+股票 / 20年 / 再平衡 / 沪深300基准）
+  strategies.js      # 技术指标策略引擎：公式 DSL（tokenizer/parser/AST）、信号回测、7 套模板
+  indicators.js      # 指标库：MA/EMA/RSI/MACD/KDJ/BOLL/神奇九转/量能等
   commodities.js     # 商品数据源（可插拔）
   collect.js         # 数据编排
   snapshot.js        # 快照落盘 data/snapshot.json
@@ -187,6 +194,9 @@ data/analytics-config.json  # 10Y 国债收益率参考值
 - `GET  /api/fund/manager-pick?limit=8`  牛人选基（高星级经理）
 - `GET  /api/manager/score?code=110022`、`/api/manager/compare?codes=a,b`  大佬评分 / PK
 - `GET  /api/portfolio/backtest?codes=110022,600519,AAPL&types=fund,stock,stock&weights=40,30,30&years=20&rebalance=halfyearly&capital=100000`  组合回测（基金+股票、最长 20 年、月/季/半年/年再平衡、沪深300 基准、回撤/盈亏曲线、今日估值）；也支持 `start=YYYY-MM-DD`
+- `GET  /api/strategy/templates`  技术指标策略模板（7 套：均线金叉/MACD/九转/量价/均线多头/RSI/布林）
+- `GET|POST /api/strategy/validate`  公式校验（POST JSON `{buy,sell,assetType}`，返回函数清单/成交量依赖/中文错误）
+- `GET  /api/strategy/backtest?code=600519&assetType=stock&buy=...&sell=...&years=5&capital=100000&fee=0.0005&stopLoss=10`  技术指标信号回测（公式 DSL；返回曲线/基准/回撤/交易明细/买卖点/当前状态）
 - `GET  /api/stock/search?key=茅台`  股票/指数搜索（A股/港股/美股，返回 secid）
 - `GET  /api/stock/pick?limit=10`  牛人选股（行业主力净流入）
 - `GET  /api/fear/asset?key=jingong`  板块恐贪（jingong/quanshang/newenergy/guangfu/dianchi/hangye/chuang50/us/a500/ai/gold/gushou）

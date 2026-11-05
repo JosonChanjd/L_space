@@ -336,7 +336,20 @@ async function getKline(secid) {
       if (close === null || !(close > 0)) continue;
       const t = localMidnight(date);
       if (!Number.isFinite(t)) continue;
-      points.push({ t, nav: close });
+      const open = toNum(fields[1]);
+      const high = toNum(fields[3]);
+      const low = toNum(fields[4]);
+      points.push({
+        t,
+        date,
+        nav: close,
+        close,
+        open: open === null || !(open > 0) ? close : open,
+        high: high === null || !(high > 0) ? close : high,
+        low: low === null || !(low > 0) ? close : low,
+        volume: toNum(fields[5]),
+        amount: toNum(fields[6]),
+      });
     }
     points.sort((a, b) => a.t - b.t);
     if (points.length < 2) throw new Error('K 线数据不足：' + key);

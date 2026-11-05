@@ -7024,3 +7024,592 @@ html[data-theme="dark"] .t-badge.up {
 .q-unit { font-size: 10px; font-weight: 400; color: var(--muted); margin-left: 4px; }
 .quote-row-static { cursor: default; }
 .quote-row-static:active { transform: none; }
+
+/* ==========================================================================
+   v1.6：技术指标策略（task-17）
+   类型选择 / 公式编辑 / 当前信号 / 交易明细 / 公式展示 / 图表买卖标记
+   说明：其余布局复用 .t-* / .strat-*，此处只补新组件
+   ========================================================================== */
+
+/* ---------- 62. 新建策略：类型选择卡（组合配置 / 指标公式） ---------- */
+.strat-type-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 2px 0 4px;
+}
+
+.strat-type-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .15s ease, background-color .15s ease,
+    border-color .15s ease, box-shadow .15s ease;
+}
+
+.strat-type-card:active {
+  transform: scale(.98);
+}
+
+.strat-type-card.active {
+  border-color: var(--brand-ring);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 4px var(--brand-soft);
+}
+
+.strat-type-card-ico {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.strat-type-card.active .strat-type-card-ico {
+  border-color: var(--brand-ring);
+}
+
+.strat-type-card b,
+.strat-type-card strong,
+.strat-type-card .strat-type-card-title {
+  max-width: 100%;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strat-type-card-desc {
+  display: -webkit-box;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.45;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.strat-type-card.active .strat-type-card-desc {
+  color: var(--text-2);
+}
+
+/* ---------- 63. 公式编辑器 / 公式助手 chips / 校验状态 ---------- */
+.formula-editor-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.formula-editor {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.formula-editor::placeholder {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.formula-editor:focus {
+  border-color: var(--brand);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.formula-help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.formula-helper-chip {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--tag-bg);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: default;
+  transition: transform .15s ease, color .15s ease,
+    border-color .15s ease, background-color .15s ease;
+}
+
+.formula-help button.formula-helper-chip {
+  cursor: pointer;
+}
+
+.formula-helper-chip:active {
+  transform: scale(.95);
+  border-color: var(--brand-ring);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.formula-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.55;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.formula-status.ok {
+  color: var(--down);
+  border-color: rgba(23, 166, 115, .28);
+  background: rgba(23, 166, 115, .10);
+}
+
+.formula-status.err {
+  color: var(--up);
+  border-color: rgba(229, 67, 59, .28);
+  background: rgba(229, 67, 59, .10);
+}
+
+.formula-hint {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+html[data-theme="dark"] .formula-status.ok {
+  border-color: rgba(37, 192, 138, .30);
+  background: rgba(37, 192, 138, .14);
+}
+
+html[data-theme="dark"] .formula-status.err {
+  border-color: rgba(255, 98, 89, .30);
+  background: rgba(255, 98, 89, .14);
+}
+
+/* ---------- 64. 指标策略：类型徽章 / 当前信号 / 状态卡 ---------- */
+.strat-card-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.strat-card-type.formula,
+.strat-card-type.indicator {
+  border-color: var(--brand-ring);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.strat-card-type.portfolio,
+.strat-card-type.combo {
+  border-color: rgba(47, 125, 246, .25);
+  background: rgba(47, 125, 246, .10);
+  color: #2f7df6;
+}
+
+html[data-theme="dark"] .strat-card-type.portfolio,
+html[data-theme="dark"] .strat-card-type.combo {
+  border-color: rgba(91, 155, 255, .30);
+  background: rgba(91, 155, 255, .16);
+  color: #7cb0ff;
+}
+
+.signal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+
+.signal-badge::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .85;
+}
+
+/* 持仓中：红（A 股习惯） */
+.signal-badge.holding {
+  border-color: rgba(229, 67, 59, .30);
+  background: rgba(229, 67, 59, .10);
+  color: var(--up);
+}
+
+/* 空仓：灰 */
+.signal-badge.flat {
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .signal-badge.holding {
+  border-color: rgba(255, 98, 89, .32);
+  background: rgba(255, 98, 89, .16);
+  color: var(--up);
+}
+
+/* 当前状态卡 */
+.strat-signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.strat-signal-card > .signal-badge {
+  align-self: flex-start;
+}
+
+.strat-signal-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.strat-signal-card b,
+.strat-signal-card strong {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 状态卡里的键值格：用卡片底色与面板底色区分，避免同色糊在一起 */
+.strat-signal-card .kv-item {
+  border-color: var(--line);
+  background: var(--card);
+}
+
+.strat-signal-card .kv-grid {
+  margin-top: 2px;
+}
+
+/* ---------- 65. 交易明细表 / 原因标签 / 公式展示 ---------- */
+.strat-trade-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.strat-trade-table th,
+.strat-trade-table td {
+  padding: 6px 5px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strat-trade-table th:first-child,
+.strat-trade-table td:first-child {
+  width: 62px;
+  min-width: 62px;
+  text-align: left;
+  color: var(--text);
+}
+
+.strat-trade-table thead th,
+.strat-trade-table tr:first-child th {
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 500;
+}
+
+.strat-trade-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.strat-trade-table .up,
+.strat-trade-table .down {
+  font-weight: 700;
+}
+
+/* 交易原因小标签：信号 / 止损 / 止盈 / 期末 */
+.strat-trade-reason {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strat-trade-reason.signal {
+  border-color: var(--brand-ring);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.strat-trade-reason.stop,
+.strat-trade-reason.stoploss,
+.strat-trade-reason.stop-loss {
+  border-color: rgba(23, 166, 115, .28);
+  background: rgba(23, 166, 115, .10);
+  color: var(--down);
+}
+
+.strat-trade-reason.profit,
+.strat-trade-reason.takeprofit,
+.strat-trade-reason.take-profit {
+  border-color: rgba(229, 67, 59, .28);
+  background: rgba(229, 67, 59, .10);
+  color: var(--up);
+}
+
+.strat-trade-reason.end {
+  color: var(--muted);
+  background: var(--panel);
+}
+
+html[data-theme="dark"] .strat-trade-reason.stop,
+html[data-theme="dark"] .strat-trade-reason.stoploss,
+html[data-theme="dark"] .strat-trade-reason.stop-loss {
+  border-color: rgba(37, 192, 138, .30);
+  background: rgba(37, 192, 138, .14);
+}
+
+html[data-theme="dark"] .strat-trade-reason.profit,
+html[data-theme="dark"] .strat-trade-reason.takeprofit,
+html[data-theme="dark"] .strat-trade-reason.take-profit {
+  border-color: rgba(255, 98, 89, .30);
+  background: rgba(255, 98, 89, .14);
+}
+
+/* 详情页公式展示块：等宽、可换行、深色可读 */
+.strat-formula-block {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
+/* 公式块标题（买入公式 / 卖出公式）与表达式本体 */
+.strat-formula-block .t-sub {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: .2px;
+}
+
+.strat-formula-block code {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[data-theme="dark"] .strat-formula-block {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, .045);
+}
+
+/* 图表买卖标记：图表内联色为 #ff5b3a / #17a673，图例 i 用同色保持一致 */
+.strat-marker-buy {
+  color: #ff5b3a;
+  fill: #ff5b3a;
+  background: #ff5b3a;
+}
+
+.strat-marker-sell {
+  color: #17a673;
+  fill: #17a673;
+  background: #17a673;
+}
+
+/* ---------- 66. 指标策略：零散收尾 / 响应式 / 桌面交互 ---------- */
+/* 首页 t-section 区块标题（标题 + 右侧「＋ 新建」按钮）垂直居中 */
+.t-section > .t-card-head {
+  align-items: center;
+}
+
+/* 详情页连续两个公式块之间略收紧 */
+.strat-formula-block + .strat-formula-block {
+  margin-top: 6px;
+}
+
+/* 类型选择卡说明最多两行（-webkit-box 在部分浏览器 blockify 后 clamp 失效时的兜底） */
+.strat-type-card-desc {
+  max-height: 2.9em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .strat-type-card:hover {
+    border-color: var(--brand-ring);
+  }
+
+  .formula-helper-chip:hover {
+    border-color: var(--brand-ring);
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+}
+
+@media (max-width: 359px) {
+  .strat-type-choice {
+    gap: 6px;
+  }
+
+  .strat-type-card {
+    padding: 9px 8px;
+    gap: 4px;
+  }
+
+  .strat-type-card-ico {
+    width: 27px;
+    height: 27px;
+    font-size: 15px;
+  }
+
+  .strat-type-card b,
+  .strat-type-card strong,
+  .strat-type-card .strat-type-card-title {
+    font-size: 12px;
+  }
+
+  .formula-editor {
+    min-height: 84px;
+    padding: 9px 10px;
+    font-size: 11.5px;
+  }
+
+  .formula-helper-chip {
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+
+  .signal-badge {
+    padding: 2px 8px;
+    font-size: 10.5px;
+  }
+
+  .strat-trade-table {
+    font-size: 9px;
+  }
+
+  .strat-trade-table th,
+  .strat-trade-table td {
+    padding: 5px 4px;
+  }
+
+  .strat-trade-table th:first-child,
+  .strat-trade-table td:first-child {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  .strat-formula-block {
+    padding: 9px 10px;
+    font-size: 10.5px;
+  }
+}
