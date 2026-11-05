@@ -754,9 +754,10 @@ async function handleRequest(req, res) {
       sendJson(res, 200, result);
     } catch (err) {
       console.error('[strategy/backtest]', err);
-      const payload = { ok: false, error: '服务内部错误' };
+      const message = err && err.message ? String(err.message) : '服务内部错误';
+      const payload = { ok: false, error: message };
       if (url.searchParams.get('debug') === '1') {
-        payload.detail = err && err.stack ? err.stack : String((err && err.message) || err);
+        payload.detail = err && err.stack ? err.stack : String(message);
       }
       sendJson(res, 200, payload);
     }

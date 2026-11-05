@@ -316,52 +316,233 @@ async function getKline(secid) {
   if (!key) throw new Error('缺少 secid');
 
   const cached = await cache.wrap('kline:' + key, TTL.kline, async () => {
-    const url =
-      KLINE_URL +
-      '?secid=' + encodeURIComponent(key) +
-      '&klt=101&fqt=2&beg=20050101&end=20500101' +
-      '&fields1=f1,f2,f3,f4,f5,f6' +
-      '&fields2=f51,f52,f53,f54,f55,f56,f57,f58';
-    const json = await fetchJson(url, 20000);
-    const data = json && json.data;
-    const rows = data && Array.isArray(data.klines) ? data.klines : [];
-    const points = [];
-    for (const row of rows) {
-      if (typeof row !== 'string') continue;
-      const fields = row.split(',');
-      const date = fields[0];
-      const close = toNum(fields[2]);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-      // fqt=2 后复权价格应为正；仍做保护，避免脏数据
-      if (close === null || !(close > 0)) continue;
-      const t = localMidnight(date);
-      if (!Number.isFinite(t)) continue;
-      const open = toNum(fields[1]);
-      const high = toNum(fields[3]);
-      const low = toNum(fields[4]);
-      points.push({
-        t,
-        date,
-        nav: close,
-        close,
-        open: open === null || !(open > 0) ? close : open,
-        high: high === null || !(high > 0) ? close : high,
-        low: low === null || !(low > 0) ? close : low,
-        volume: toNum(fields[5]),
-        amount: toNum(fields[6]),
-      });
+    let lastError = null;
+    // 1) 东财 K 线（多个等价域名轮换，海外机房偶发 502/socket hang up）
+    for (const host of EASTMONEY_KLINE_HOSTS) {
+      try {
+        const url =
+          host +
+          '/api/qt/stock/kline/get?secid=' + encodeURIComponent(key) +
+          '&klt=101&fqt=2&beg=20050101&end=20500101' +
+          '&fields1=f1,f2,f3,f4,f5,f6' +
+          '&fields2=f51,f52,f53,f54,f55,f56,f57,f58';
+        const json = await fetchJson(url, 15000);
+        const data = json && json.data;
+        const rows = data && Array.isArray(data.klines) ? data.klines : [];
+        const points = parseEastmoneyKlines(rows);
+        if (points.length >= 2) {
+          return {
+            secid: key,
+            code: String((data && data.code) || ''),
+            name: String((data && data.name) || ''),
+            points,
+            source: 'eastmoney',
+          };
+        }
+        lastError = new Error('K 线数据不足：' + key);
+      } catch (err) {
+        lastError = err;
+      }
     }
-    points.sort((a, b) => a.t - b.t);
-    if (points.length < 2) throw new Error('K 线数据不足：' + key);
-    return {
-      secid: key,
-      code: String((data && data.code) || ''),
-      name: String((data && data.name) || ''),
-      points,
-    };
+
+    // 2) 腾讯 K 线兜底（前复权约 640 根；不足时用不复权长序列，策略会自动截断区间）
+    try {
+      const fallback = await fetchTencentKline(key);
+      if (fallback && fallback.points.length >= 2) return fallback;
+    } catch (err) {
+      lastError = err;
+    }
+
+    throw new Error(
+      '行情接口暂时不可用（东财/腾讯均失败）：' + (lastError && lastError.message ? lastError.message : 'unknown')
+    );
   });
 
   return cached.value;
+}
+
+const EASTMONEY_KLINE_HOSTS = [
+  'https://push2his.eastmoney.com',
+  'https://push2delay.eastmoney.com',
+  'https://push2.eastmoney.com',
+];
+
+function parseEastmoneyKlines(rows) {
+  const points = [];
+  for (const row of rows || []) {
+    if (typeof row !== 'string') continue;
+    const fields = row.split(',');
+    const date = fields[0];
+    const close = toNum(fields[2]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    // fqt=2 后复权价格应为正；仍做保护，避免脏数据
+    if (close === null || !(close > 0)) continue;
+    const t = localMidnight(date);
+    if (!Number.isFinite(t)) continue;
+    const open = toNum(fields[1]);
+    const high = toNum(fields[3]);
+    const low = toNum(fields[4]);
+    points.push({
+      t,
+      date,
+      nav: close,
+      close,
+      open: open === null || !(open > 0) ? close : open,
+      high: high === null || !(high > 0) ? close : high,
+      low: low === null || !(low > 0) ? close : low,
+      volume: toNum(fields[5]),
+      amount: toNum(fields[6]),
+    });
+  }
+  points.sort((a, b) => a.t - b.t);
+  return points;
+}
+
+/** 东财 secid → 腾讯行情代码（1.600519 → sh600519 / 116.00700 → hk00700 / 105.AAPL → usAAPL） */
+function tencentSymbolFromSecid(secid) {
+  const raw = String(secid || '').trim();
+  const match = /^(\d+)\.(.+)$/.exec(raw);
+  if (!match) return null;
+  const market = match[1];
+  let code = match[2];
+  if (market === '1') return 'sh' + code;
+  if (market === '0') return 'sz' + code;
+  if (market === '116') return 'hk' + code.padStart(5, '0');
+  if (market === '105' || market === '106' || market === '107') return 'us' + code.toUpperCase();
+  return null;
+}
+
+/** 新浪美股日 K（返回全历史，兜底海外行情接口不可用） */
+async function fetchSinaUsKline(symbol) {
+  const code = String(symbol).replace(/^us/i, '').toUpperCase();
+  const url =
+    'https://stock.finance.sina.com.cn/usstock/api/jsonp.php/var%20d/US_MinKService.getDailyK?symbol=' +
+    encodeURIComponent(code) + '&___qn=3';
+  const text = await getText(url, {
+    encoding: 'utf8',
+    timeout: 15000,
+    retries: 1,
+    headers: { Referer: 'https://finance.sina.com.cn/' },
+  });
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start < 0 || end <= start) throw new Error('新浪美股 K 线解析失败：' + code);
+  let rows;
+  try {
+    rows = JSON.parse(text.slice(start, end + 1));
+  } catch (err) {
+    throw new Error('新浪美股 K 线解析失败：' + code);
+  }
+  if (!Array.isArray(rows)) throw new Error('新浪美股 K 线为空：' + code);
+  const points = [];
+  for (const row of rows) {
+    const date = String(row && row.d || '');
+    const close = toNum(row && row.c);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || close === null || !(close > 0)) continue;
+    const t = localMidnight(date);
+    if (!Number.isFinite(t)) continue;
+    const open = toNum(row.o);
+    const high = toNum(row.h);
+    const low = toNum(row.l);
+    points.push({
+      t,
+      date,
+      nav: close,
+      close,
+      open: open === null || !(open > 0) ? close : open,
+      high: high === null || !(high > 0) ? close : high,
+      low: low === null || !(low > 0) ? close : low,
+      volume: toNum(row.v),
+      amount: null,
+    });
+  }
+  points.sort((a, b) => a.t - b.t);
+  return { secid: '105.' + code, code, name: '', points, source: 'sina-us' };
+}
+
+function parseTencentKlines(symbol, payload) {  const data = payload && payload.data ? payload.data[symbol] : null;
+  if (!data) return [];
+  const arr = data.qfqday || data.day || [];
+  if (!Array.isArray(arr)) return [];
+  const points = [];
+  for (const row of arr) {
+    if (!Array.isArray(row) || row.length < 6) continue;
+    const date = String(row[0]);
+    const open = toNum(row[1]);
+    const close = toNum(row[2]);
+    const high = toNum(row[3]);
+    const low = toNum(row[4]);
+    const volume = toNum(row[5]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || close === null || !(close > 0)) continue;
+    const t = localMidnight(date);
+    if (!Number.isFinite(t)) continue;
+    points.push({
+      t,
+      date,
+      nav: close,
+      close,
+      open: open === null || !(open > 0) ? close : open,
+      high: high === null || !(high > 0) ? close : high,
+      low: low === null || !(low > 0) ? close : low,
+      volume,
+      amount: null,
+    });
+  }
+  points.sort((a, b) => a.t - b.t);
+  return points;
+}
+
+async function fetchTencentKline(secid) {
+  const symbol = tencentSymbolFromSecid(secid);
+  if (!symbol) throw new Error('无法转换腾讯代码：' + secid);
+
+  // 美股：腾讯前复权接口只返回头尾两根，改用新浪美股日 K（含全历史）
+  if (/^us/.test(symbol)) {
+    try {
+      const sina = await fetchSinaUsKline(symbol);
+      if (sina && sina.points.length >= 10) return sina;
+    } catch (err) {
+      /* 继续尝试腾讯 */
+    }
+  }
+
+  async function requestTencent(type) {
+    const param = symbol + ',day,,,640,' + type;
+    const url = 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=' + encodeURIComponent(param);
+    const text = await getText(url, {
+      encoding: 'utf8',
+      timeout: 12000,
+      retries: 1,
+      headers: { Referer: 'https://gu.qq.com/' },
+    });
+    return JSON.parse(text);
+  }
+
+  let payload = null;
+  try {
+    payload = await requestTencent('qfq');
+  } catch (err) {
+    payload = null;
+  }
+  let points = parseTencentKlines(symbol, payload);
+  if (points.length < 10) {
+    // 部分市场（如美股）前复权接口返回行数异常，改用不复权长序列兜底
+    try {
+      payload = await requestTencent('day');
+      const rawPoints = parseTencentKlines(symbol, payload);
+      if (rawPoints.length > points.length) points = rawPoints;
+    } catch (err) {
+      /* 忽略，使用已有结果 */
+    }
+  }
+  if (!points.length) throw new Error('腾讯 K 线为空：' + symbol);
+  return {
+    secid,
+    code: secid.split('.')[1] || secid,
+    name: '',
+    points,
+    source: 'tencent',
+  };
 }
 
 /**
