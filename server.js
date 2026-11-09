@@ -32,6 +32,7 @@ const analytics = require('./src/analytics');
 const portfolio = require('./src/portfolio');
 const stocks = require('./src/stocks');
 const strategies = require('./src/strategies');
+const portfolioTemplates = require('./src/portfolioTemplates');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -613,6 +614,16 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // ---- [13b] GET /api/portfolio/templates ----
+  if (pathname === '/api/portfolio/templates') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      sendJson(res, 405, { ok: false, error: '请使用 GET' });
+      return;
+    }
+    await sendApi(res, () => portfolioTemplates.getPortfolioTemplates());
+    return;
+  }
+
   // ---- [13] GET /api/portfolio/backtest?codes=&weights=&years=&rebalance= ----
   if (pathname === '/api/portfolio/backtest') {
     if (method !== 'GET' && method !== 'HEAD') {
@@ -642,6 +653,47 @@ async function handleRequest(req, res) {
     await sendApi(res, () =>
       stocks.searchStocks(url.searchParams.get('key') || '', queryNum(url, 'limit', 10))
     );
+    return;
+  }
+
+  // ---- GET /api/stock/kline?code=600519&range=1y|3y|5y|all&days=250 ----
+  if (pathname === '/api/stock/kline') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      sendJson(res, 405, { ok: false, error: '请使用 GET' });
+      return;
+    }
+    await sendApi(res, async () => {
+      const code = String(url.searchParams.get('code') || '').trim();
+      if (!code) throw new Error('缺少 code 参数');
+      const range = String(url.searchParams.get('range') || '1y');
+      const daysParam = queryNum(url, 'days', null);
+      const resolved = await stocks.resolveSecid(code);
+      const secid = resolved && resolved.secid;
+      if (!secid) throw new Error('未找到证券：' + code);
+      const kline = await stocks.getKline(secid);
+      const points = Array.isArray(kline.points) ? kline.points : [];
+      if (!points.length) throw new Error('暂无 K 线数据：' + code);
+      const defaultCount = range === '3y' ? 750 : range === '5y' ? 1250 : range === 'all' ? points.length : 250;
+      const count = daysParam && daysParam > 0 ? daysParam : defaultCount;
+      const sliced = points.slice(-Math.min(count, points.length));
+      return {
+        ok: true,
+        code,
+        name: kline.name || (resolved && resolved.name) || '',
+        secid,
+        source: kline.source || 'eastmoney',
+        items: sliced.map((point) => ({
+          t: point.t,
+          date: point.date,
+          open: point.open,
+          high: point.high,
+          low: point.low,
+          close: point.close,
+          volume: point.volume,
+          amount: point.amount,
+        })),
+      };
+    });
     return;
   }
 

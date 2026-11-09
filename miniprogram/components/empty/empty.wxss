@@ -1,0 +1,48 @@
+/* 空态组件局部样式 */
+.c-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64rpx 32rpx;
+  text-align: center;
+  color: #8e99a8;
+}
+
+.c-empty-ico {
+  margin-bottom: 16rpx;
+  font-size: 64rpx;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.c-empty-title {
+  color: #4b5566;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.c-empty-desc {
+  margin-top: 8rpx;
+  color: #8e99a8;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.c-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24rpx;
+  padding: 0 32rpx;
+  min-height: 72rpx;
+  border-radius: 16rpx;
+  background: #ff5b3a;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.c-empty-btn:active {
+  opacity: 0.88;
+}

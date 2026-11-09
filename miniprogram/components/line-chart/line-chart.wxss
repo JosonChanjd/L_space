@@ -1,0 +1,12 @@
+/* 折线图组件局部样式（组件样式隔离，不依赖 app.wxss） */
+.lc-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.lc-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,165 @@
+<!-- 新建 / 编辑指标公式策略 -->
+<view class="page no-tabbar {{isDark ? 'is-dark' : ''}}">
+  <view class="card">
+    <view class="card-head">
+      <text class="section-title">指标公式策略</text>
+      <text class="badge badge-indicator">{{editing ? '编辑' : '新建'}}</text>
+    </view>
+    <view class="form-item">
+      <text class="form-label">策略名称</text>
+      <input class="input" value="{{name}}" placeholder="如 茅台均线金叉" maxlength="30" data-field="name" bindinput="onInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">说明（可选）</text>
+      <input class="input" value="{{desc}}" placeholder="一句话说明" maxlength="60" data-field="desc" bindinput="onInput" />
+    </view>
+  </view>
+
+  <view class="section-title">回测标的</view>
+  <view class="card">
+    <view wx:if="{{asset.code}}" class="asset-card">
+      <view class="asset-main">
+        <text class="asset-name">{{asset.codeName}}</text>
+        <view class="asset-meta">
+          <text class="badge badge-indicator">{{asset.label}}</text>
+          <text class="sm muted">{{asset.code}}</text>
+        </view>
+      </view>
+      <text class="badge">当前标的</text>
+    </view>
+    <view class="form-item">
+      <text class="form-label">搜索股票 / ETF</text>
+      <input class="input" value="{{stockQuery}}" placeholder="输入名称或代码，如 600519" bindinput="onStockInput" />
+      <view wx:if="{{searchingStock}}" class="suggest-tip sm muted">搜索中…</view>
+      <view wx:if="{{stockResults.length}}" class="suggest">
+        <view class="suggest-row" wx:for="{{stockResults}}" wx:key="code" data-index="{{index}}" bindtap="onPickStock">
+          <text class="suggest-name">{{item.name}}</text>
+          <text class="suggest-sub sm muted">{{item.sub}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="form-item">
+      <text class="form-label">搜索基金</text>
+      <input class="input" value="{{fundQuery}}" placeholder="输入基金名称或代码，如 110022" bindinput="onFundInput" />
+      <view wx:if="{{searchingFund}}" class="suggest-tip sm muted">搜索中…</view>
+      <view wx:if="{{fundResults.length}}" class="suggest">
+        <view class="suggest-row" wx:for="{{fundResults}}" wx:key="code" data-index="{{index}}" bindtap="onPickFund">
+          <text class="suggest-name">{{item.name}}</text>
+          <text class="suggest-sub sm muted">{{item.sub}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-title">交易公式</view>
+  <view class="card">
+    <view class="form-item">
+      <text class="form-label">买入公式（条件成立时买入）</text>
+      <textarea class="formula-editor" value="{{buy}}" data-field="buy" bindinput="onFormulaInput" bindfocus="onFormulaFocus" cursor="{{buyCursor}}" auto-height="{{true}}" maxlength="{{-1}}" placeholder="CROSS(MA(CLOSE,5),MA(CLOSE,20))"></textarea>
+    </view>
+    <view class="form-item">
+      <text class="form-label">卖出公式（条件成立时卖出）</text>
+      <textarea class="formula-editor" value="{{sell}}" data-field="sell" bindinput="onFormulaInput" bindfocus="onFormulaFocus" cursor="{{sellCursor}}" auto-height="{{true}}" maxlength="{{-1}}" placeholder="CROSSDOWN(MA(CLOSE,5),MA(CLOSE,20))"></textarea>
+    </view>
+    <view class="helper-chips">
+      <view class="chip" wx:for="{{helpers}}" wx:key="label" data-index="{{index}}" bindtap="onHelperTap">{{item.label}}</view>
+    </view>
+    <view class="sm muted formula-hint">点击助手片段会插入到当前聚焦输入框的光标处。可用 CLOSE / OPEN / HIGH / LOW / VOL / AMOUNT 与 MA、EMA、CROSS、TD_BUY 等函数，支持多行赋值。</view>
+    <view wx:if="{{validateState.text}}" class="formula-status {{validateState.cls}}">{{validateState.text}}</view>
+  </view>
+
+  <view class="section-title">回测参数</view>
+  <view class="card">
+    <view class="grid-2">
+      <view class="form-item">
+        <text class="form-label">回测年限</text>
+        <picker mode="selector" range="{{yearOptions}}" value="{{yearIndex}}" bindchange="onYearChange">
+          <view class="picker">{{yearOptions[yearIndex]}} 年</view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">初始资金（元）</text>
+        <input class="input" type="number" value="{{capital}}" data-field="capital" bindinput="onInput" />
+      </view>
+    </view>
+    <view class="grid-2">
+      <view class="form-item">
+        <text class="form-label">手续费（单边 %）</text>
+        <input class="input" type="digit" value="{{feePct}}" data-field="feePct" bindinput="onInput" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">止损 %（可空）</text>
+        <input class="input" type="digit" value="{{stopLoss}}" data-field="stopLoss" bindinput="onInput" />
+      </view>
+    </view>
+    <view class="form-item">
+      <text class="form-label">止盈 %（可空）</text>
+      <input class="input" type="digit" value="{{takeProfit}}" data-field="takeProfit" bindinput="onInput" />
+    </view>
+    <view class="toolbar">
+      <button class="btn btn-ghost btn-mini" bindtap="onValidate">校验公式</button>
+      <button class="btn btn-primary btn-mini" bindtap="onBacktest">开始回测</button>
+      <button class="btn btn-primary btn-mini" bindtap="onSave">保存策略</button>
+    </view>
+  </view>
+
+  <view class="section-title">回测预览</view>
+  <view wx:if="{{preview && preview.loading}}" class="card">
+    <loading></loading>
+  </view>
+  <view wx:elif="{{preview && preview.error}}" class="card">
+    <view class="empty">
+      <text class="empty-text">回测失败</text>
+      <text class="sm muted">{{preview.error}}</text>
+      <button class="btn btn-ghost btn-mini" bindtap="onBacktest">重试</button>
+    </view>
+  </view>
+  <view wx:elif="{{preview}}" class="card">
+    <view class="row-between">
+      <text class="sm muted">{{preview.startDate}} ~ {{preview.endDate}}</text>
+      <text class="sm muted">初始资金 {{preview.capitalText}}</text>
+    </view>
+    <view class="kpi-grid">
+      <view class="kpi" wx:for="{{preview.kpis}}" wx:key="label">
+        <text class="kpi-label">{{item.label}}</text>
+        <text class="kpi-value {{item.dir}}">{{item.value}}</text>
+      </view>
+    </view>
+    <line-chart series="{{preview.chartSeries}}" height="{{300}}" percent="{{true}}" markers="{{preview.markers}}"></line-chart>
+    <view class="row-between">
+      <view class="signal-badge {{preview.current.holding ? 'holding' : 'flat'}}">{{preview.current.holdingText}}</view>
+      <text class="sm muted">最近信号 {{preview.current.lastSignalText}}{{preview.current.lastSignalDate ? ' · ' + preview.current.lastSignalDate : ''}}</text>
+    </view>
+    <scroll-view wx:if="{{preview.trades.length}}" scroll-x="{{true}}" class="trade-scroll">
+      <view class="table trade-table">
+        <view class="table-row table-head">
+          <view class="table-cell">买入日</view>
+          <view class="table-cell">买入价</view>
+          <view class="table-cell">卖出日</view>
+          <view class="table-cell">卖出价</view>
+          <view class="table-cell">收益</view>
+          <view class="table-cell">原因</view>
+        </view>
+        <view class="table-row" wx:for="{{preview.trades}}" wx:key="key">
+          <view class="table-cell">{{item.buyDate}}</view>
+          <view class="table-cell">{{item.buyPrice}}</view>
+          <view class="table-cell">{{item.sellDate}}</view>
+          <view class="table-cell">{{item.sellPrice}}</view>
+          <view class="table-cell {{item.pctDir}}">{{item.pctText}}</view>
+          <view class="table-cell">{{item.reasonText}}</view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:else class="sm muted">区间内还没有产生交易。</view>
+    <view wx:if="{{preview.note}}" class="sm muted preview-note">{{preview.note}}</view>
+    <view class="sm muted">「保存策略」后可在策略详情查看完整交易明细与回撤。</view>
+  </view>
+  <view wx:else class="card">
+    <view class="empty">
+      <text class="empty-text">还没有回测结果</text>
+      <text class="sm muted">选择标的后点击「开始回测」查看收益曲线与交易明细</text>
+    </view>
+  </view>
+
+  <view class="foot-note sm muted">公式仅保存在本机；回测用后复权日线 / 基金净值，信号在下一交易日开盘成交。历史回测不代表未来收益，不构成投资建议。</view>
+</view>

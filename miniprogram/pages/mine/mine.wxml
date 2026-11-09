@@ -1,0 +1,77 @@
+<view class="page {{isDark ? 'is-dark' : ''}}">
+  <!-- 头部 -->
+  <view class="card mine-head">
+    <view class="mine-logo">韭</view>
+    <view class="mine-main">
+      <view class="mine-name">韭研 · 投研工作台</view>
+      <view class="mine-ver muted sm">小程序版 v{{version}} · {{apiMode}}</view>
+    </view>
+  </view>
+
+  <!-- 本地数据 -->
+  <view class="card">
+    <view class="card-head">
+      <text class="card-title">本地数据</text>
+      <text class="section-sub">仅保存在本机</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">自选数量</text>
+      <text class="mine-row-value">{{watchCount}} 项</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">已保存策略</text>
+      <text class="mine-row-value">{{strategyCount}} 个</text>
+    </view>
+    <button class="btn-danger mine-btn" bindtap="onClearAll">清空本地数据</button>
+  </view>
+
+  <!-- 主题 -->
+  <view class="card">
+    <view class="card-head">
+      <text class="card-title">外观</text>
+    </view>
+    <view class="row mine-row">
+      <view class="mine-row-main">
+        <view>深色模式</view>
+        <view class="muted xs">深色主题对夜间看盘更友好</view>
+      </view>
+      <switch checked="{{isDark}}" color="#ff5b3a" bindchange="onThemeChange" />
+    </view>
+  </view>
+
+  <!-- 数据源 -->
+  <view class="card">
+    <view class="card-head">
+      <text class="card-title">数据源说明</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">行情（A股 / 美股 / 港股）</text>
+      <text class="mine-row-value">腾讯财经 · 实时</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">基金净值 / 排行</text>
+      <text class="mine-row-value">天天基金 · 公开数据</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">恐贪指数</text>
+      <text class="mine-row-value">本地三因子合成</text>
+    </view>
+    <view class="row mine-row">
+      <text class="muted">后端服务</text>
+      <text class="mine-row-value">Render（可能休眠）</text>
+    </view>
+  </view>
+
+  <!-- 关于 -->
+  <view class="card">
+    <view class="card-head">
+      <text class="card-title">关于</text>
+    </view>
+    <view class="muted sm about-text">
+      韭研 · 投研工作台 v{{version}}，面向个人投资者的投研工具。数据来自公开行情接口，仅供学习研究，不构成任何投资建议。
+    </view>
+    <button class="btn-ghost mine-btn" bindtap="onCopyUrl">复制网页版地址</button>
+    <button class="btn mine-btn" bindtap="onAbout">关于与免责声明</button>
+    <view class="muted xs mine-url">{{webUrl}}</view>
+  </view>
+</view>

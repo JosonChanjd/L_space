@@ -1,0 +1,46 @@
+<!-- 工具箱首页：4 分类 × 35 工具，本地搜索过滤 -->
+<view class="page">
+  <!-- 搜索 -->
+  <view class="card">
+    <view class="section-title">
+      工具箱
+      <text class="section-sub">{{filteredCount}} / {{total}}</text>
+    </view>
+    <view class="form-field">
+      <input class="input" value="{{keyword}}" bindinput="onSearchInput" placeholder="搜索工具名称 / 关键词，如 恐贪、回测" confirm-type="search" />
+    </view>
+    <view class="sm muted">共 4 个分类、35 个工具，点击进入查看真实数据。</view>
+  </view>
+
+  <!-- 分类分组 -->
+  <block wx:if="{{groups.length}}">
+    <view class="card" wx:for="{{groups}}" wx:key="key">
+      <view class="section-title">
+        <text class="tools-cat-icon">{{item.icon}}</text>
+        {{item.title}}
+        <text class="section-sub">{{item.desc}}</text>
+      </view>
+      <view class="list-row" wx:for="{{item.items}}" wx:for-item="tool" wx:for-index="ti" wx:key="key" data-key="{{tool.key}}" bindtap="onTapTool">
+        <view class="list-icon">{{tool.icon}}</view>
+        <view class="list-main">
+          <view class="list-title">{{tool.title}}</view>
+          <view class="list-sub">{{tool.desc}}</view>
+        </view>
+        <view class="arrow"></view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空态 -->
+  <view class="empty" wx:elif="{{!configReady}}">
+    <view class="empty-icon">🧰</view>
+    <view class="empty-text">工具配置缺失</view>
+    <view class="empty-desc">请检查 miniprogram/config/tools.js 是否存在</view>
+  </view>
+  <view class="empty" wx:else>
+    <view class="empty-icon">🔍</view>
+    <view class="empty-text">没有匹配的工具</view>
+    <view class="empty-desc">换个关键词试试</view>
+    <button class="btn btn-ghost" bindtap="onClearSearch">清空搜索</button>
+  </view>
+</view>

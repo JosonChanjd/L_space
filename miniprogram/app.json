@@ -1,0 +1,41 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/watch/watch",
+    "pages/strategy/strategy",
+    "pages/tools/tools",
+    "pages/mine/mine",
+    "pages/asset/asset",
+    "pages/strategy-create/strategy-create",
+    "pages/strategy-detail/strategy-detail",
+    "pages/tool/tool"
+  ],
+  "window": {
+    "navigationBarTitleText": "韭研 · 投研工作台",
+    "navigationBarBackgroundColor": "#f6f7fb",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f7fb",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "selectedColor": "#ff5b3a",
+    "color": "#8e99a8",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页", "iconPath": "images/tab-home.png", "selectedIconPath": "images/tab-home-active.png" },
+      { "pagePath": "pages/watch/watch", "text": "自选", "iconPath": "images/tab-watch.png", "selectedIconPath": "images/tab-watch-active.png" },
+      { "pagePath": "pages/strategy/strategy", "text": "策略", "iconPath": "images/tab-strategy.png", "selectedIconPath": "images/tab-strategy-active.png" },
+      { "pagePath": "pages/tools/tools", "text": "工具", "iconPath": "images/tab-tools.png", "selectedIconPath": "images/tab-tools-active.png" },
+      { "pagePath": "pages/mine/mine", "text": "我的", "iconPath": "images/tab-mine.png", "selectedIconPath": "images/tab-mine-active.png" }
+    ]
+  },
+  "usingComponents": {
+    "line-chart": "/components/line-chart/line-chart",
+    "loading": "/components/loading/loading",
+    "empty": "/components/empty/empty"
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

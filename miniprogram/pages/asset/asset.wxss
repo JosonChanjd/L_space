@@ -1,0 +1,145 @@
+/* 资产详情页私有样式 */
+.asset-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.asset-name {
+  min-width: 0;
+  color: var(--text);
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-price {
+  margin-top: 16rpx;
+  color: var(--text);
+  font-size: 72rpx;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.asset-unit {
+  margin-left: 8rpx;
+  font-size: 24rpx;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.asset-pct {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.asset-kv {
+  margin-top: 22rpx;
+}
+
+.asset-kv-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 18rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 14rpx;
+  background: var(--card-2);
+  font-size: 24rpx;
+}
+
+.stage-item {
+  box-sizing: border-box;
+  padding: 16rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 14rpx;
+  background: var(--card-2);
+  text-align: center;
+}
+
+.stage-value {
+  margin-top: 6rpx;
+  color: var(--text);
+  font-size: 28rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 18rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 14rpx;
+  background: var(--card-2);
+}
+
+.risk-value {
+  color: var(--text);
+  font-size: 26rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.fund-manager {
+  display: flex;
+  align-items: center;
+  color: var(--text-2);
+  font-size: 26rpx;
+}
+
+.fund-star {
+  margin-left: 8rpx;
+  color: #f0a020;
+  font-size: 22rpx;
+}
+
+.fund-manager-meta {
+  color: var(--text-2);
+  font-size: 24rpx;
+  text-align: right;
+}
+
+.holding-row {
+  padding: 14rpx 0;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.holding-row:last-child {
+  border-bottom: none;
+}
+
+.holding-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 26rpx;
+}
+
+.holding-weight {
+  flex: 0 0 auto;
+  margin-left: 16rpx;
+  color: var(--text);
+  font-size: 26rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.asset-foot {
+  padding: 8rpx 4rpx 0;
+  text-align: center;
+  line-height: 1.6;
+}

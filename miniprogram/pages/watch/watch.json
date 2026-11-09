@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "自选",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "line-chart": "/components/line-chart/line-chart",
+    "loading": "/components/loading/loading",
+    "empty": "/components/empty/empty"
+  }
+}

@@ -1,0 +1,95 @@
+<view class="page">
+  <!-- 搜索添加 -->
+  <view class="card">
+    <view class="card-head">
+      <text class="card-title">搜索添加</text>
+      <text class="section-sub">股票 / 基金</text>
+    </view>
+    <view class="search-bar">
+      <input
+        class="input search-input"
+        value="{{searchKey}}"
+        placeholder="输入代码或名称，如 600519 / 易方达"
+        confirm-type="search"
+        bindinput="onSearchInput"
+      />
+      <view class="search-clear" wx:if="{{searchKey}}" bindtap="onClearSearch">✕</view>
+    </view>
+    <view class="search-tip muted sm" wx:if="{{searching || searchTip}}">{{searching ? '搜索中…' : searchTip}}</view>
+    <view class="search-result" wx:if="{{searchResults.length}}">
+      <view
+        class="search-item"
+        wx:for="{{searchResults}}"
+        wx:key="key"
+        data-code="{{item.code}}"
+        data-name="{{item.name}}"
+        data-type="{{item.type}}"
+        bindtap="onAddTap"
+      >
+        <view class="search-main">
+          <view class="search-name">{{item.name}}</view>
+          <view class="search-meta">
+            <text class="mono sm">{{item.code}}</text>
+            <text class="badge {{item.type === 'fund' ? 'badge-portfolio' : 'badge-indicator'}} search-tag">{{item.type === 'fund' ? '基金' : '股票'}} · {{item.tagText}}</text>
+          </view>
+        </view>
+        <button
+          class="btn-mini"
+          data-code="{{item.code}}"
+          data-name="{{item.name}}"
+          data-type="{{item.type}}"
+          catchtap="onAddTap"
+        >+ 加入</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 行情错误 -->
+  <view class="error-box" wx:if="{{quoteError}}">{{quoteError}}</view>
+
+  <!-- 自选列表 -->
+  <loading wx:if="{{loading && !rows.length}}" text="正在刷新自选行情…" />
+
+  <empty
+    wx:elif="{{!hasWatch}}"
+    icon="⭐"
+    title="还没有自选"
+    desc="搜索股票 / 基金后点「+ 加入」，行情会自动刷新"
+    action-text="去首页看看"
+    bindaction="onGoHome"
+  />
+
+  <view class="card" wx:else>
+    <view class="card-head">
+      <text class="card-title">我的自选</text>
+      <text class="section-sub">{{rows.length}} 项 · 长按可删除</text>
+    </view>
+    <view
+      class="watch-row"
+      wx:for="{{rows}}"
+      wx:key="key"
+      data-code="{{item.code}}"
+      data-name="{{item.name}}"
+      data-type="{{item.type}}"
+      bindtap="onRowTap"
+      bindlongpress="onRowLongPress"
+    >
+      <view class="watch-main">
+        <view class="watch-name">
+          <text class="watch-title">{{item.name}}</text>
+          <text class="badge {{item.tagClass}} watch-badge">{{item.typeText}}</text>
+        </view>
+        <view class="watch-meta">
+          <text class="mono sm">{{item.code}}</text>
+          <text class="muted xs watch-date" wx:if="{{item.dateText}}">净值 {{item.dateText}}</text>
+        </view>
+      </view>
+      <view class="watch-side">
+        <view class="watch-price {{item.dir}}">{{item.priceText}}</view>
+        <view class="watch-pct {{item.dir}}">{{item.pctText}}</view>
+      </view>
+      <view class="arrow"></view>
+    </view>
+    <button class="btn-ghost watch-refresh" bindtap="refresh">刷新行情</button>
+  </view>
+</view>

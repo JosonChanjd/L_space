@@ -1,0 +1,8 @@
+<view class="c-loading">
+  <view class="c-loading-dots">
+    <view class="c-loading-dot"></view>
+    <view class="c-loading-dot"></view>
+    <view class="c-loading-dot"></view>
+  </view>
+  <text class="c-loading-text">{{text}}</text>
+</view>

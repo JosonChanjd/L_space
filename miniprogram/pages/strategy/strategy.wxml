@@ -1,0 +1,85 @@
+<!-- 策略首页：技术指标模板 / 推荐组合策略 / 我的策略 -->
+<view class="page {{isDark ? 'is-dark' : ''}}">
+  <view class="toolbar">
+    <view class="toolbar-main">
+      <text class="page-title">策略</text>
+      <text class="sm muted">模板 · 回测 · 我的策略</text>
+    </view>
+    <button class="btn btn-primary btn-mini" bindtap="onCreate">＋ 新建策略</button>
+  </view>
+
+  <view class="section-title">技术指标策略</view>
+  <view wx:if="{{loadingTpl}}" class="card">
+    <view class="skeleton skeleton-lg"></view>
+    <view class="skeleton" style="width: 72%; margin-top: 16rpx;"></view>
+    <view class="skeleton" style="width: 46%; margin-top: 12rpx;"></view>
+  </view>
+  <view wx:elif="{{tplError}}" class="card">
+    <view class="error-box">指标模板加载失败：{{tplError}}</view>
+    <view class="empty">
+      <button class="btn btn-ghost btn-mini" bindtap="retryTemplates">重试</button>
+    </view>
+  </view>
+  <view wx:elif="{{!indicatorTemplates.length}}" class="card">
+    <view class="empty"><text class="empty-text">暂无指标策略模板</text></view>
+  </view>
+  <view wx:else class="card list-card">
+    <view class="row tpl-row" hover-class="row-hover" wx:for="{{indicatorTemplates}}" wx:key="key" data-key="{{item.key}}" bindtap="onTapTemplate">
+      <view class="tpl-icon">{{item.icon}}</view>
+      <view class="tpl-main">
+        <view class="row-between">
+          <text class="tpl-name">{{item.name}}</text>
+          <text class="badge badge-indicator">{{item.badge}}</text>
+        </view>
+        <text class="tpl-desc sm muted">{{item.desc}}</text>
+        <text class="tpl-meta sm muted">{{item.codeName}} · {{item.assetLabel}} · 默认 {{item.years}} 年</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="section-title">推荐组合策略</view>
+  <view wx:if="{{loadingPf}}" class="card">
+    <view class="skeleton skeleton-lg"></view>
+    <view class="skeleton" style="width: 68%; margin-top: 16rpx;"></view>
+    <view class="skeleton" style="width: 40%; margin-top: 12rpx;"></view>
+  </view>
+  <view wx:else class="card list-card">
+    <view class="row tpl-row" hover-class="row-hover" wx:for="{{portfolioTemplates}}" wx:key="id" data-id="{{item.id}}" bindtap="onTapPortfolio">
+      <view class="tpl-icon">{{item.icon}}</view>
+      <view class="tpl-main">
+        <view class="row-between">
+          <text class="tpl-name">{{item.name}}</text>
+          <text class="badge badge-portfolio">组合</text>
+        </view>
+        <text class="tpl-desc sm muted">{{item.desc}}</text>
+        <text class="tpl-meta sm muted">{{item.meta}}</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="section-title">我的策略</view>
+  <view wx:if="{{!mine.length}}" class="card">
+    <view class="empty">
+      <text class="empty-text">还没有自建策略</text>
+      <text class="sm muted">从上方模板复制，或按自己的公式新建</text>
+      <button class="btn btn-ghost btn-mini" bindtap="onCreate">新建你的第一个策略</button>
+    </view>
+  </view>
+  <view wx:else class="card list-card">
+    <view class="row tpl-row" hover-class="row-hover" wx:for="{{mine}}" wx:key="id" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="onTapMine">
+      <view class="tpl-main">
+        <view class="row-between">
+          <text class="tpl-name">{{item.name}}</text>
+          <text class="badge {{item.badgeClass}}">{{item.badge}}</text>
+        </view>
+        <text class="tpl-desc sm muted">{{item.summary}}</text>
+        <text wx:if="{{item.desc}}" class="tpl-meta sm muted">{{item.desc}}</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="foot-note sm muted">数据来自本地后端接口；历史回测不代表未来收益，不构成投资建议。</view>
+</view>

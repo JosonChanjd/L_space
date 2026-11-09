@@ -1,0 +1,161 @@
+/* 首页页面私有样式（通用样式见 app.wxss） */
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 4rpx 24rpx;
+}
+
+.brand-logo {
+  flex: 0 0 auto;
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, #ff5b3a, #ff8c42);
+  color: #ffffff;
+  font-size: 36rpx;
+  font-weight: 700;
+  box-shadow: 0 8rpx 20rpx rgba(255, 91, 58, 0.24);
+}
+
+.brand-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.brand-title {
+  color: var(--text);
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.brand-sub {
+  margin-top: 4rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.brand-badge {
+  flex: 0 0 auto;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: var(--brand-weak);
+  color: var(--brand);
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.fear-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding: 8rpx 0 20rpx;
+}
+
+.fear-value {
+  font-size: 96rpx;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fear-level {
+  margin-left: 20rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.fear-factor {
+  margin-top: 18rpx;
+}
+
+.fear-factor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.fear-tip {
+  margin-top: 18rpx;
+  line-height: 1.6;
+}
+
+.quote-cell {
+  box-sizing: border-box;
+  padding: 18rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 16rpx;
+  background: var(--card-2);
+}
+
+.quote-name {
+  color: var(--text-2);
+  font-size: 24rpx;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-price {
+  margin-top: 8rpx;
+  color: var(--text);
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.quote-pct {
+  margin-top: 2rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick {
+  display: flex;
+  align-items: center;
+  padding: 18rpx;
+  border: 2rpx solid var(--border);
+  border-radius: 16rpx;
+  background: var(--card-2);
+}
+
+.quick-ico {
+  flex: 0 0 auto;
+  width: 64rpx;
+  height: 64rpx;
+  margin-right: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand-weak);
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.quick-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quick-title {
+  color: var(--text);
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.foot {
+  padding: 12rpx 4rpx 0;
+  text-align: center;
+  line-height: 1.8;
+}

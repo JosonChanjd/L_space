@@ -1,0 +1,191 @@
+<!-- 策略详情：指标策略 / 组合策略 -->
+<view class="page no-tabbar {{isDark ? 'is-dark' : ''}}">
+  <loading wx:if="{{loading}}"></loading>
+
+  <view wx:elif="{{error}}" class="card">
+    <view class="empty">
+      <text class="empty-text">加载失败</text>
+      <text class="sm muted">{{error}}</text>
+      <button class="btn btn-ghost btn-mini" bindtap="onRetry">重试</button>
+    </view>
+  </view>
+
+  <block wx:else>
+    <!-- Hero：回测收益率 + 3 KPI + 区间 chips -->
+    <view wx:if="{{hero}}" class="card hero">
+      <view class="hero-top">
+        <view class="hero-main">
+          <text class="hero-label">回测收益率</text>
+          <text class="hero-value {{hero.retDir}}">{{hero.retText}}</text>
+          <text class="sm muted hero-sub">{{hero.sub}}</text>
+          <text wx:if="{{target.desc}}" class="sm muted hero-desc">{{target.desc}}</text>
+        </view>
+        <view class="hero-badges">
+          <text class="badge {{target.isIndicator ? 'badge-indicator' : 'badge-portfolio'}}">{{target.isIndicator ? '指标策略' : '组合策略'}}</text>
+          <text wx:if="{{target.isTemplate}}" class="badge">模板</text>
+        </view>
+      </view>
+      <view class="kpi-grid">
+        <view class="kpi" wx:for="{{hero.kpis}}" wx:key="label">
+          <text class="kpi-label">{{item.label}}</text>
+          <text class="kpi-value {{item.dir}}">{{item.value}}</text>
+        </view>
+      </view>
+      <view class="chips">
+        <view class="chip {{activeRange === item.key ? 'active' : ''}}" wx:for="{{ranges}}" wx:key="key" data-key="{{item.key}}" bindtap="onRangeTap">{{item.label}}</view>
+        <text wx:if="{{rangeLoading}}" class="sm muted chips-tip">回测中…</text>
+      </view>
+    </view>
+
+    <view wx:if="{{note}}" class="card"><text class="sm muted note-text">{{note}}</text></view>
+
+    <!-- 区间表现 -->
+    <view class="card">
+      <view class="card-head"><text class="section-title">区间表现</text></view>
+      <view class="kpi-grid">
+        <view class="kpi" wx:for="{{metrics}}" wx:key="label">
+          <text class="kpi-label">{{item.label}}</text>
+          <text class="kpi-value {{item.dir}}">{{item.value}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 当前状态 -->
+    <view wx:if="{{current}}" class="card">
+      <view class="card-head"><text class="section-title">当前状态</text></view>
+      <view class="signal-badge {{current.holding ? 'holding' : 'flat'}}">{{current.holdingText}}</view>
+      <view class="kv-grid">
+        <view class="kv">
+          <text class="sm muted">建仓日期</text>
+          <text class="kv-value">{{current.entryDate || '—'}}</text>
+        </view>
+        <view class="kv">
+          <text class="sm muted">建仓价</text>
+          <text class="kv-value">{{current.entryPriceText}}</text>
+        </view>
+        <view class="kv">
+          <text class="sm muted">最近信号</text>
+          <text class="kv-value">{{current.lastSignalText}}</text>
+        </view>
+        <view class="kv">
+          <text class="sm muted">信号日期</text>
+          <text class="kv-value">{{current.lastSignalDate || '—'}}</text>
+        </view>
+      </view>
+      <text class="sm muted signal-note">信号在下一交易日开盘成交；止损 / 止盈按盘中最高最低价触发（止损优先）。</text>
+    </view>
+
+    <!-- 4 Tab -->
+    <view class="card">
+      <view class="tabs">
+        <view class="tab {{activeTab === item.key ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="onTabTap">{{item.label}}</view>
+      </view>
+
+      <block wx:if="{{activeTab === 'trend'}}">
+        <line-chart series="{{chartSeries}}" height="{{360}}" percent="{{true}}" markers="{{markers}}"></line-chart>
+        <text class="sm muted tab-note">曲线为区间累计收益（%），起点归一为 0%；圆点为买入信号、三角为卖出信号。</text>
+      </block>
+
+      <block wx:elif="{{activeTab === 'drawdown'}}">
+        <line-chart series="{{ddSeries}}" height="{{320}}" percent="{{true}}"></line-chart>
+        <text class="sm muted tab-note">回撤 = 相对区间内前高点的跌幅（≤0），数值越低回撤越深。</text>
+      </block>
+
+      <block wx:elif="{{activeTab === 'trades'}}">
+        <block wx:if="{{target.isPortfolio}}">
+          <scroll-view scroll-x="{{true}}" class="trade-scroll">
+            <view class="table trade-table">
+              <view class="table-row table-head">
+                <view class="table-cell">资产</view>
+                <view class="table-cell">类型</view>
+                <view class="table-cell">权重</view>
+                <view class="table-cell">区间收益</view>
+                <view class="table-cell">持仓金额</view>
+              </view>
+              <view class="table-row" wx:for="{{holdings}}" wx:key="key">
+                <view class="table-cell">{{item.name}}</view>
+                <view class="table-cell">{{item.typeLabel}}</view>
+                <view class="table-cell">{{item.weightText}}</view>
+                <view class="table-cell {{item.ownDir}}">{{item.ownText}}</view>
+                <view class="table-cell">{{item.amountText}}</view>
+              </view>
+            </view>
+          </scroll-view>
+          <text class="sm muted tab-note">{{tradeNote}}</text>
+        </block>
+        <block wx:else>
+          <scroll-view wx:if="{{trades.length}}" scroll-x="{{true}}" class="trade-scroll">
+            <view class="table trade-table">
+              <view class="table-row table-head">
+                <view class="table-cell">买入日</view>
+                <view class="table-cell">买入价</view>
+                <view class="table-cell">卖出日</view>
+                <view class="table-cell">卖出价</view>
+                <view class="table-cell">持有</view>
+                <view class="table-cell">收益率</view>
+                <view class="table-cell">原因</view>
+              </view>
+              <view class="table-row" wx:for="{{trades}}" wx:key="key">
+                <view class="table-cell">{{item.buyDate}}</view>
+                <view class="table-cell">{{item.buyPrice}}</view>
+                <view class="table-cell">{{item.sellDate}}</view>
+                <view class="table-cell">{{item.sellPrice}}</view>
+                <view class="table-cell">{{item.holdDays}}</view>
+                <view class="table-cell {{item.pctDir}}">{{item.pctText}}</view>
+                <view class="table-cell">
+                  <text class="trade-reason {{item.reasonClass}}">{{item.reasonText}}</text>
+                </view>
+              </view>
+            </view>
+          </scroll-view>
+          <view wx:else class="empty">
+            <text class="empty-text">区间内没有产生交易</text>
+          </view>
+          <text class="sm muted tab-note">{{tradeNote}}</text>
+        </block>
+      </block>
+
+      <block wx:else>
+        <block wx:if="{{target.isIndicator}}">
+          <text class="formula-label">买入公式</text>
+          <view class="formula">{{formula.buy}}</view>
+          <text class="formula-label">卖出公式</text>
+          <view class="formula">{{formula.sell}}</view>
+        </block>
+        <block wx:else>
+          <text class="formula-label">资产配置</text>
+          <view class="formula">{{formula.buy}}</view>
+          <text class="formula-label">再平衡规则</text>
+          <view class="formula">{{formula.sell}}</view>
+        </block>
+
+        <block wx:if="{{formula.funcs.length}}">
+          <text class="section-title">使用函数</text>
+          <view class="chips">
+            <view class="chip" wx:for="{{formula.funcs}}" wx:key="*this">{{item}}</view>
+          </view>
+        </block>
+
+        <text class="section-title">回测参数</text>
+        <view class="kv-grid">
+          <view class="kv" wx:for="{{formula.params}}" wx:key="label">
+            <text class="sm muted">{{item.label}}</text>
+            <text class="kv-value">{{item.value}}</text>
+          </view>
+        </view>
+        <text class="sm muted tab-note">{{formula.disclaimer}}</text>
+      </block>
+    </view>
+
+    <!-- 操作 -->
+    <view class="card">
+      <view class="toolbar">
+        <button wx:if="{{canEdit}}" class="btn btn-ghost btn-mini" bindtap="onEdit">编辑策略</button>
+        <button wx:if="{{canCopy}}" class="btn btn-primary btn-mini" bindtap="onCopy">复制为我的策略</button>
+        <button class="btn btn-ghost btn-mini" bindtap="onRecalc">重新计算</button>
+        <button wx:if="{{canDelete}}" class="btn btn-ghost btn-mini" bindtap="onDelete">删除策略</button>
+      </view>
+    </view>
+    <view class="foot-note sm muted">历史回测不代表未来收益，不构成投资建议。</view>
+  </block>
+</view>

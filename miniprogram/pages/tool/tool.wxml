@@ -1,0 +1,240 @@
+<!-- 韭研 · 通用工具页（原生 WXML，无 DOM/innerHTML） -->
+<view class="page">
+  <view class="loading" wx:if="{{loading}}">加载中…</view>
+
+  <view wx:if="{{!loading && error}}">
+    <view class="error-box">{{error}}</view>
+    <view class="card">
+      <button class="btn btn-primary btn-block" bindtap="onRetry">重试</button>
+    </view>
+  </view>
+
+  <block wx:if="{{!loading}}">
+    <!-- 工具简介 -->
+    <view class="card" wx:if="{{title}}">
+      <view class="section-title">{{title}}</view>
+      <view class="sm muted tool-desc" wx:if="{{desc}}">{{desc}}</view>
+    </view>
+
+    <!-- 参数表单 -->
+    <view class="card" wx:if="{{params.length}}">
+      <view class="section-title">查询参数</view>
+      <view class="form-field" wx:for="{{params}}" wx:key="name">
+        <view class="form-label">{{item.label}}</view>
+
+        <block wx:if="{{item.type === 'picker'}}">
+          <picker mode="selector" range="{{item.options}}" range-key="label" value="{{item.pickIndex}}" data-index="{{index}}" bindchange="onPickerChange">
+            <view class="picker">{{item.labelValue}}</view>
+          </picker>
+        </block>
+
+        <block wx:elif="{{item.type === 'search'}}">
+          <input class="input" value="{{item.value}}" data-index="{{index}}" bindinput="onSearchInput" placeholder="{{item.placeholder}}" />
+          <view class="suggest-list" wx:if="{{suggestForIndex === index && suggestions.length}}">
+            <view class="suggest-item" wx:for="{{suggestions}}" wx:for-item="s" wx:key="code" data-code="{{s.code}}" bindtap="onPickSuggestion">
+              <view class="suggest-name">{{s.name}}</view>
+              <view class="suggest-code">{{s.code}}{{s.type ? ' · ' + s.type : ''}}</view>
+            </view>
+          </view>
+        </block>
+
+        <block wx:else>
+          <input class="input" type="{{item.inputType}}" value="{{item.value}}" data-index="{{index}}" bindinput="onParamInput" placeholder="{{item.placeholder}}" maxlength="{{item.maxLength}}" />
+        </block>
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="onQuery">查询</button>
+    </view>
+
+    <!-- 情绪仪表：恐贪 / 板块恐贪 -->
+    <view class="card" wx:if="{{showGauge}}">
+      <view class="section-title">情绪仪表</view>
+      <view class="gauge">
+        <view class="gauge-needle" style="transform:rotate({{gauge.ang}}deg)"></view>
+        <view class="gauge-value" style="color:{{gauge.color}}">{{gauge.value}}</view>
+        <view class="gauge-label" style="color:{{gauge.color}}">{{gauge.level}}</view>
+      </view>
+      <view class="factor" wx:for="{{gauge.factors}}" wx:key="label">
+        <view class="row">
+          <view class="row-main"><text class="tool-factor-label">{{item.label}}</text></view>
+          <view class="row-side mono">{{item.value}}</view>
+        </view>
+        <view class="progress"><view class="progress-bar" style="width:{{item.width}}%"></view></view>
+        <view class="sm muted tool-factor-desc" wx:if="{{item.desc}}">{{item.desc}}</view>
+      </view>
+      <view class="kpi-grid tool-quote-grid" wx:if="{{gauge.quote}}">
+        <view class="kpi">
+          <view class="kpi-label">标的现价</view>
+          <view class="kpi-value">{{gauge.quote.price}}</view>
+        </view>
+        <view class="kpi">
+          <view class="kpi-label">涨跌幅</view>
+          <view class="kpi-value {{gauge.quote.dir}}">{{gauge.quote.changePct}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 回测摘要 -->
+    <view class="card" wx:if="{{showBacktest && backtest}}">
+      <view class="section-title">回测区间</view>
+      <view class="row tool-row-line"><view class="muted sm">开始日期</view><view class="mono">{{backtest.startDate}}</view></view>
+      <view class="row tool-row-line"><view class="muted sm">结束日期</view><view class="mono">{{backtest.endDate}}</view></view>
+      <view class="row tool-row-line"><view class="muted sm">再平衡方式</view><view class="mono">{{backtest.rebalance}}</view></view>
+      <view class="sm muted tool-factor-desc" wx:if="{{backtest.note}}">{{backtest.note}}</view>
+    </view>
+
+    <!-- KPI -->
+    <view class="card" wx:if="{{kpis.length}}">
+      <view class="section-title">关键指标</view>
+      <view class="kpi-grid">
+        <view class="kpi" wx:for="{{kpis}}" wx:key="label">
+          <view class="kpi-label">{{item.label}}</view>
+          <view class="kpi-value {{item.dir}}">{{item.value}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 图表 -->
+    <view class="card" wx:if="{{chartSeries}}">
+      <view class="section-title">{{chartTitle}}</view>
+      <line-chart series="{{chartSeries}}" height="{{chartHeight}}" percent="{{chartPercent}}"></line-chart>
+    </view>
+
+    <!-- 定投计算 -->
+    <view class="card" wx:if="{{showDca}}">
+      <view class="section-title">定投计算</view>
+      <view class="form-field">
+        <view class="form-label">每期金额 (¥)</view>
+        <input class="input" type="digit" value="{{dca.amount}}" data-field="amount" bindinput="onDcaInput" />
+      </view>
+      <view class="form-field">
+        <view class="form-label">定投频率</view>
+        <picker mode="selector" range="{{freqOptions}}" value="{{dca.freq === 'weekly' ? 1 : 0}}" bindchange="onDcaPickFreq">
+          <view class="picker">{{dca.freqLabel}}</view>
+        </picker>
+      </view>
+      <view class="form-field">
+        <view class="form-label">年化收益 (%)</view>
+        <input class="input" type="digit" value="{{dca.rate}}" data-field="rate" bindinput="onDcaInput" />
+      </view>
+      <view class="form-field">
+        <view class="form-label">投资年限 (年)</view>
+        <input class="input" type="digit" value="{{dca.years}}" data-field="years" bindinput="onDcaInput" />
+      </view>
+      <view class="kpi-grid">
+        <view class="kpi"><view class="kpi-label">期数</view><view class="kpi-value">{{dca.periods}} 期</view></view>
+        <view class="kpi"><view class="kpi-label">累计投入</view><view class="kpi-value">{{dca.invested}}</view></view>
+        <view class="kpi"><view class="kpi-label">期末总额</view><view class="kpi-value">{{dca.fv}}</view></view>
+        <view class="kpi"><view class="kpi-label">收益</view><view class="kpi-value {{dca.gainDir}}">{{dca.gain}}</view></view>
+        <view class="kpi"><view class="kpi-label">收益率</view><view class="kpi-value {{dca.retDir}}">{{dca.ret}}</view></view>
+        <view class="kpi"><view class="kpi-label">当前恐贪</view><view class="kpi-value">{{dca.fearValue}}</view></view>
+      </view>
+      <view class="sm muted tool-factor-desc">当前情绪：{{dca.fearLevel || '—'}}；估算结果不构成投资建议。</view>
+    </view>
+
+    <!-- 基金账本 -->
+    <view class="card" wx:if="{{showLedger}}">
+      <view class="section-title">我的账本（本地）</view>
+      <view class="form-field">
+        <view class="form-label">基金代码</view>
+        <input class="input" value="{{ledger.inputCode}}" data-field="inputCode" bindinput="onLedgerInput" placeholder="6 位基金代码，如 110022" />
+      </view>
+      <view class="form-field">
+        <view class="form-label">买入金额 (¥)</view>
+        <input class="input" type="digit" value="{{ledger.inputAmount}}" data-field="inputAmount" bindinput="onLedgerInput" placeholder="如 1000" />
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="onLedgerAdd">记一笔</button>
+      <view class="list-row" wx:for="{{ledger.records}}" wx:key="id">
+        <view class="list-main">
+          <view class="list-title">{{item.name}} <text class="muted sm">{{item.code}}</text></view>
+          <view class="list-sub">{{item.date}} · 买入净值 {{item.nav}}</view>
+        </view>
+        <view class="list-side">{{item.amount}}</view>
+        <button class="btn-mini tool-del" data-id="{{item.id}}" bindtap="onLedgerDelete">删除</button>
+      </view>
+      <view class="empty" wx:if="{{!ledger.records.length}}">
+        <view class="empty-text">还没有记账记录</view>
+      </view>
+    </view>
+
+    <!-- 策略提醒 -->
+    <view class="card" wx:if="{{showAlerts}}">
+      <view class="section-title">恐贪提醒（本地）</view>
+      <view class="row tool-row-line">
+        <view class="muted sm">当前恐贪</view>
+        <view class="mono">{{alerts.fearValue}} {{alerts.fearLevel}}</view>
+      </view>
+      <view class="form-field">
+        <view class="form-label">提醒阈值（恐贪 ≥ 阈值时触发）</view>
+        <input class="input" type="digit" value="{{alerts.inputThreshold}}" bindinput="onAlertInput" placeholder="0-100，如 80" />
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="onAlertAdd">添加提醒</button>
+      <view class="list-row" wx:for="{{alerts.rules}}" wx:key="id">
+        <view class="list-main">
+          <view class="list-title">恐贪 ≥ {{item.threshold}}</view>
+          <view class="list-sub">{{item.hit ? '已触发' : '监控中'}}</view>
+        </view>
+        <view class="badge {{item.hit ? 'badge-indicator' : ''}}">{{item.hit ? '触发' : '监控'}}</view>
+        <button class="btn-mini tool-del" data-id="{{item.id}}" bindtap="onAlertDelete">删除</button>
+      </view>
+      <view class="empty" wx:if="{{!alerts.rules.length}}">
+        <view class="empty-text">还没有提醒规则</view>
+      </view>
+    </view>
+
+    <!-- 组合实盘 -->
+    <view class="card" wx:if="{{showLive}}">
+      <view class="section-title">模拟组合（本地）</view>
+      <view class="form-field">
+        <view class="form-label">组合名称</view>
+        <input class="input" value="{{live.inputName}}" data-field="inputName" bindinput="onLiveInput" placeholder="如 稳健组合" />
+      </view>
+      <view class="form-field">
+        <view class="form-label">初始资金 (¥)</view>
+        <input class="input" type="digit" value="{{live.inputCapital}}" data-field="inputCapital" bindinput="onLiveInput" placeholder="如 100000" />
+      </view>
+      <view class="form-field">
+        <view class="form-label">基金代码（2-5 只，逗号分隔）</view>
+        <input class="input" value="{{live.inputCodes}}" data-field="inputCodes" bindinput="onLiveInput" />
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="onLiveCreate" loading="{{live.creating}}">创建组合</button>
+      <view class="list-row" wx:for="{{live.portfolios}}" wx:key="id">
+        <view class="list-main">
+          <view class="list-title">{{item.name}}</view>
+          <view class="list-sub">本金 {{item.capital}} · 市值 {{item.value}} · {{item.count}} 只基金</view>
+        </view>
+        <view class="list-side {{item.gainDir}}">{{item.gain}}</view>
+        <button class="btn-mini tool-del" data-id="{{item.id}}" bindtap="onLiveDelete">删除</button>
+      </view>
+      <view class="empty" wx:if="{{!live.portfolios.length}}">
+        <view class="empty-text">还没有模拟组合</view>
+      </view>
+    </view>
+
+    <!-- 数据表 -->
+    <view class="card" wx:if="{{table}}">
+      <view class="section-title">数据表</view>
+      <scroll-view scroll-x class="table-scroll">
+        <view class="table" style="min-width:{{table.minWidth}}rpx">
+          <view class="table-head">
+            <view class="table-cell" wx:for="{{table.head}}" wx:for-item="h" wx:key="key">{{h.label}}</view>
+          </view>
+          <view class="table-row" wx:for="{{table.rows}}" wx:for-item="row" wx:for-index="ri" wx:key="id">
+            <view class="table-cell {{cell.dir}}" wx:for="{{row.cells}}" wx:for-item="cell" wx:key="key">{{cell.text}}</view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 说明 -->
+    <view class="card" wx:if="{{notes.length}}">
+      <view class="section-title">说明</view>
+      <view class="sm muted tool-note" wx:for="{{notes}}" wx:key="*this">{{item}}</view>
+    </view>
+
+    <!-- 空数据 -->
+    <view class="empty" wx:if="{{hasData && isEmpty}}">
+      <view class="empty-icon">📭</view>
+      <view class="empty-text">暂无数据</view>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,92 @@
+/* 工具详情页私有样式（通用类在 app.wxss） */
+.tool-desc {
+  margin-top: 4rpx;
+  line-height: 1.6;
+}
+
+/* 情绪因子块 */
+.factor {
+  margin-top: 18rpx;
+}
+
+.tool-row-line {
+  padding: 8rpx 0;
+}
+
+.tool-factor-label {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.tool-factor-desc {
+  margin-top: 8rpx;
+  line-height: 1.55;
+}
+
+.tool-quote-grid {
+  margin-top: 16rpx;
+}
+
+.tool-note {
+  margin-bottom: 10rpx;
+  line-height: 1.65;
+}
+
+.tool-note:last-child {
+  margin-bottom: 0;
+}
+
+.tool-del {
+  flex: 0 0 auto;
+  margin-left: 12rpx;
+}
+
+/* 搜索建议下拉 */
+.suggest-list {
+  margin-top: 8rpx;
+  overflow: hidden;
+  border: 2rpx solid var(--border);
+  border-radius: 14rpx;
+  background: var(--card);
+}
+
+.suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 20rpx;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.suggest-item:last-child {
+  border-bottom: none;
+}
+
+.suggest-item:active {
+  background: var(--field-bg);
+}
+
+.suggest-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  font-size: 26rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.suggest-code {
+  flex: 0 0 auto;
+  margin-left: 16rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+}
+
+/* 横向表格滚动容器（表格本身样式在 app.wxss） */
+.table-scroll {
+  width: 100%;
+}
+
+.table-scroll .table {
+  width: 100%;
+}

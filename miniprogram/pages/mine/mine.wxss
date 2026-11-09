@@ -1,0 +1,74 @@
+/* 「我的」页面私有样式 */
+.mine-head {
+  display: flex;
+  align-items: center;
+}
+
+.mine-logo {
+  flex: 0 0 auto;
+  width: 88rpx;
+  height: 88rpx;
+  margin-right: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, #ff5b3a, #ff8c42);
+  color: #ffffff;
+  font-size: 42rpx;
+  font-weight: 700;
+  box-shadow: 0 8rpx 20rpx rgba(255, 91, 58, 0.24);
+}
+
+.mine-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mine-name {
+  color: var(--text);
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.mine-ver {
+  margin-top: 4rpx;
+}
+
+.mine-row {
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.mine-row:last-child {
+  border-bottom: none;
+}
+
+.mine-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mine-row-value {
+  flex: 0 0 auto;
+  margin-left: 16rpx;
+  color: var(--text-2);
+  font-size: 24rpx;
+  text-align: right;
+}
+
+.mine-btn {
+  margin-top: 18rpx;
+  width: 100%;
+}
+
+.about-text {
+  line-height: 1.8;
+}
+
+.mine-url {
+  margin-top: 14rpx;
+  text-align: center;
+  word-break: break-all;
+}

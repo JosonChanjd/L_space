@@ -1,0 +1,10 @@
+/* 工具箱首页私有样式（通用类在 app.wxss） */
+.tools-cat-icon {
+  margin-right: 10rpx;
+  font-size: 30rpx;
+  line-height: 1;
+}
+
+.list-row:last-child {
+  border-bottom: none;
+}

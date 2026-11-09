@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "策略详情",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "line-chart": "/components/line-chart/line-chart"
+  }
+}

@@ -169,6 +169,15 @@ data/snapshot.json      # 抓取快照（运行时生成）
 data/fear-history.json  # 恐贪历史（运行时累积）
 data/analytics-history.json # 股汇比 / 铜油比历史（运行时累积）
 data/analytics-config.json  # 10Y 国债收益率参考值
+miniprogram/            # 微信原生小程序（WXML/WXSS/JS，零依赖）
+  app.js / app.json / app.wxss  # 小程序入口、页面/tabBar 注册、全局设计系统
+  pages/                # 首页 / 自选 / 策略 / 工具(35) / 我的 / 资产详情 / 策略新建与详情 / 通用工具页
+  components/           # line-chart（Canvas 2D 折线图）/ loading / empty
+  utils/                # api（云函数代理 + 直连降级）/ format / storage / ui
+  config/tools.js       # 35 个工具注册表（key → API / 参数 / 渲染配置）
+  images/               # tabBar 图标
+cloudfunctions/api/     # 云开发云函数：HTTPS 代理 Render 后端（仅放行 /api/*）
+scripts/qa-miniprogram/ # 小程序静态检查 / 页面桩测试 / 云函数协议测试
 ```
 
 ## API
@@ -195,6 +204,8 @@ data/analytics-config.json  # 10Y 国债收益率参考值
 - `GET  /api/fund/manager-pick?limit=8`  牛人选基（高星级经理）
 - `GET  /api/manager/score?code=110022`、`/api/manager/compare?codes=a,b`  大佬评分 / PK
 - `GET  /api/portfolio/backtest?codes=110022,600519,AAPL&types=fund,stock,stock&weights=40,30,30&years=20&rebalance=halfyearly&capital=100000`  组合回测（基金+股票、最长 20 年、月/季/半年/年再平衡、沪深300 基准、回撤/盈亏曲线、今日估值）；也支持 `start=YYYY-MM-DD`
+- `GET  /api/portfolio/templates`  组合策略模板（5 套：黄金恐贪/红利低波/全球资产配置/科技成长/股债平衡）
+- `GET  /api/stock/kline?code=600519&range=1y|3y|5y|all`  股票/ETF 后复权日 K（小程序资产详情画图用）
 - `GET  /api/strategy/templates`  技术指标策略模板（7 套：均线金叉/MACD/九转/量价/均线多头/RSI/布林）
 - `GET|POST /api/strategy/validate`  公式校验（POST JSON `{buy,sell,assetType}`，返回函数清单/成交量依赖/中文错误）
 - `GET  /api/strategy/backtest?code=600519&assetType=stock&buy=...&sell=...&years=5&capital=100000&fee=0.0005&stopLoss=10`  技术指标信号回测（公式 DSL；返回曲线/基准/回撤/交易明细/买卖点/当前状态）
@@ -209,12 +220,29 @@ data/analytics-config.json  # 10Y 国债收益率参考值
 
 ## 微信小程序版（个人自用）
 
-`miniprogram/` 目录是配套的小程序前端，复用同一套后端 API。
+`miniprogram/` 是**原生微信小程序**（不是 web-view 套壳），与网页版共用同一套 Render 后端 API。个人主体也能用：
 
-- 导入微信开发者工具、连接本地服务、真机预览 / 正式发布的完整步骤见
-[miniprogram/小程序部署指南.md](miniprogram/小程序部署指南.md)。
-- 功能与原网页版一致：恐贪仪表盘、A股/美股/港股行情、搜索、自选、策略、工具、刷新。
-- 小程序通过 `utils/store.js` 中可配置的服务器地址访问本地后端；"我的"页可随时修改并持久化。
+- 小程序 → `wx.cloud.callFunction('api')` 云开发云函数 → HTTPS 转发到 Render 后端（无需 ICP 备案域名；个人主体不可用 web-view）
+- 页面：首页（恐贪/市场/商品）、自选（股票+基金搜索、批量行情、长按删除）、策略（7 套指标模板 + 5 套组合模板 + 公式新建/校验/回测/详情四 Tab + 我的策略）、工具（**35 个工具全部原生实现**，通用数据驱动渲染器 + 每工具配置）、我的（主题/关于）、资产详情（基金净值曲线、股票 K 线）
+- 数据本地化：自选 / 我的策略 / 主题 / 工具本地数据存 `jy_mp_*`（不做账号体系与云端同步）
+
+**部署步骤**（改 AppID、开通云开发、上传云函数、设为体验版、添加体验成员、常见问题）见
+[miniprogram/README.md](miniprogram/README.md)。关键点：
+
+1. 微信开发者工具导入仓库根目录（含 `project.config.json`），把 `touristappid` 改成你的 AppID；
+2. 开通云开发 → 把环境 ID 填到 `miniprogram/app.js` 的 `globalData.envId`；
+3. 右键 `cloudfunctions/api` → 上传并部署，控制台把云函数超时调到 **60 秒**（默认 3 秒会超时）；
+4. 上传 → 公众平台设为体验版 → 添加你与朋友的微信号为体验成员。
+
+**测试**（需本地后端运行）：
+
+```bash
+node scripts/qa-miniprogram/static.cjs       # JSON/JS/WXML/WXSS/app.json/35 工具/API 契约
+node scripts/qa-miniprogram/cloudfn-test.cjs # 云函数代理协议（7 项）
+node scripts/qa-miniprogram/harness.cjs      # 页面逻辑桩测试（50 项：页面 + 全部 35 工具）
+```
+
+已知限制：Render 免费实例休眠时首次请求较慢（云函数已按 60s 超时保护）；微信开发者工具/体验版需真实 AppID；正式发布需提交微信审核。
 
 ---
 

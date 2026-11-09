@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "工具详情",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "line-chart": "/components/line-chart/line-chart"
+  }
+}

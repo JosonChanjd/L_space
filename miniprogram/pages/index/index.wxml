@@ -1,0 +1,114 @@
+<view class="page">
+  <!-- 品牌头 -->
+  <view class="brand">
+    <view class="brand-logo">韭</view>
+    <view class="brand-main">
+      <view class="brand-title">韭研 · 投研工作台</view>
+      <view class="brand-sub">微信小程序版 · 数据来自公开行情接口</view>
+    </view>
+    <view class="brand-badge">v1.6</view>
+  </view>
+
+  <!-- 加载 / 错误 -->
+  <loading wx:if="{{loading}}" text="正在加载行情…" />
+
+  <view wx:elif="{{error}}" class="card">
+    <view class="error-box">{{error}}</view>
+    <button class="btn-primary" bindtap="onRetry">重试</button>
+  </view>
+
+  <block wx:else>
+    <!-- 恐贪指数 -->
+    <view class="card" wx:if="{{fg}}">
+      <view class="card-head">
+        <text class="card-title">恐贪指数</text>
+        <text class="section-sub" wx:if="{{updatedText}}">更新于 {{updatedText}}</text>
+      </view>
+      <view class="fear-main">
+        <view class="fear-value" style="color: {{fg.color}};">{{fg.valueText}}</view>
+        <view class="fear-level" style="color: {{fg.color}};">{{fg.level}}</view>
+      </view>
+      <view class="fear-factor" wx:for="{{factors}}" wx:key="label">
+        <view class="fear-factor-head">
+          <text class="muted sm">{{item.label}}</text>
+          <text class="sm">{{item.valueText}}</text>
+        </view>
+        <view class="progress">
+          <view class="progress-bar" style="width: {{item.width}}%;"></view>
+        </view>
+      </view>
+      <view class="muted xs fear-tip">0-20 极度恐惧 · 20-40 恐惧 · 40-60 中性 · 60-80 贪婪 · 80-100 极度贪婪</view>
+    </view>
+
+    <!-- 市场速览 -->
+    <view class="card" wx:for="{{markets}}" wx:key="id">
+      <view class="card-head">
+        <text class="card-title">{{item.title}}</text>
+        <text class="section-sub">{{item.items.length}} 项</text>
+      </view>
+      <view class="grid-2">
+        <view
+          class="quote-cell"
+          wx:for="{{item.items}}"
+          wx:for-item="q"
+          wx:key="code"
+          data-code="{{q.code}}"
+          data-name="{{q.name}}"
+          bindtap="onQuoteTap"
+        >
+          <view class="quote-name">{{q.name}}</view>
+          <view class="quote-price {{q.dir}}">{{q.priceText}}</view>
+          <view class="quote-pct {{q.dir}}">{{q.pctText}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 商品市场 -->
+    <view class="card">
+      <view class="card-head">
+        <text class="card-title">商品市场</text>
+        <text class="section-sub" wx:if="{{commodities.length}}">{{commodities.length}} 项</text>
+      </view>
+      <view class="grid-2" wx:if="{{commodities.length}}">
+        <view class="quote-cell" wx:for="{{commodities}}" wx:key="code">
+          <view class="quote-name">{{item.name}}</view>
+          <view class="quote-price {{item.dir}}">{{item.priceText}}</view>
+          <view class="quote-pct {{item.dir}}">{{item.pctText}}</view>
+          <view class="muted xs" wx:if="{{item.unit}}">{{item.unit}}</view>
+        </view>
+      </view>
+      <view class="muted sm" wx:else>{{commodityNote}}</view>
+    </view>
+
+    <!-- 快捷入口 -->
+    <view class="card">
+      <view class="card-head">
+        <text class="card-title">快捷入口</text>
+      </view>
+      <view class="grid-2">
+        <view
+          class="quick"
+          wx:for="{{quick}}"
+          wx:key="title"
+          data-url="{{item.url}}"
+          data-tab="{{item.tab}}"
+          bindtap="onQuickTap"
+        >
+          <view class="quick-ico">{{item.icon}}</view>
+          <view class="quick-main">
+            <view class="quick-title">{{item.title}}</view>
+            <view class="muted xs">{{item.desc}}</view>
+          </view>
+          <view class="arrow"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 页脚 -->
+    <view class="foot">
+      <view class="muted xs" wx:if="{{nextText}}">下次自动抓取：{{nextText}}（每日 19:00）</view>
+      <view class="muted xs" wx:for="{{notes}}" wx:key="*this">{{item}}</view>
+      <view class="muted xs">仅供学习研究，不构成投资建议。</view>
+    </view>
+  </block>
+</view>
